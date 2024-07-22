@@ -21,14 +21,23 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
-        httpSecurity.authorizeHttpRequests(request -> request.requestMatchers(
-                "/",
-                "/styles/*",
-                "/js/*",
-                "/registration"
-        ).permitAll().anyRequest().authenticated())
-                .formLogin(form -> form.loginPage("/login").permitAll())
-                .logout(httpSecurityLogoutConfigurer -> httpSecurityLogoutConfigurer.permitAll());
+        httpSecurity
+                .authorizeHttpRequests(authorizeRequests ->
+                        authorizeRequests
+                                .requestMatchers("/", "/login", "/logout", "/css/**", "/js/**", "/images/**").permitAll()
+                                .anyRequest().authenticated()
+                )
+                .formLogin(formLogin ->
+                        formLogin
+                                .loginPage("/")
+                                .permitAll()
+                )
+                .logout(logout ->
+                        logout
+                                .logoutUrl("/logout")
+                                .logoutSuccessUrl("/")
+                                .permitAll()
+                );
         return httpSecurity.build();
     }
     @Bean

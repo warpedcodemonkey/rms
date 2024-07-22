@@ -1,4 +1,8 @@
 <header th:fragment="header">
     <p>Header</p>
-    <p align="right">REPLACE_WITH_LOGOUT</p>
+    <p align="right">
+        <div sec:authorize="isAuthenticated()">
+            <a th:href="@{/logout}" id="logout-link">Logout</a>
+        </div>
+    </p>
 </header>
