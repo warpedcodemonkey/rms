@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div th:insert="~{partial/header::header}"></div>
+
+<table border="1" cellspacing="0" cellpadding="0">
+    <tr>
+        <td sec:authorize="isAuthenticated()" colspan="2">
+            <div>Welcome to the party <span sec:authentication="name"/>.</div>
+        </td>
+        <td sec:authorize="isAnonymous()">
+            <form th:action="@{/login}" method="post">
+                <table border="1" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td>User Name:</td>
+                        <td><input name="username" type="text" placeholder="Username"></td>
+                    </tr>
+                    <tr>
+                        <td>Password:</td>
+                        <td><input name="password" type="password" placeholder="Password"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><input type="submit" value="Log in"></td>
+                    </tr>
+                </table>
+            </form>
+        </td>
+        <td align="center" valign="center">
+            Main page
+
+            <br/>
+            <br/>
+            <div>Welcome to the party <span sec:authentication="name"/>.</div>
+        </td>
+    </tr>
+
+
+</table>
+
+
+
+<div th:insert="~{partial/footer::footer}"></div>
+</body>
+</html>

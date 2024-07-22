@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div th:insert="~{partial/header::header}"></div>
+<div th:if="${param.error}">
+    Login or password incorrect.
+</div>
+<div th:if="${param.successful}">
+    <div>Welcome to the party <span th:text="${username}">.</div>
+</div>
+<form th:action="@{/login}" method="post">
+    <input name="username" type="text" placeholder="Username">
+    <input name="password" type="password" placeholder="Password">
+    <input type="submit" value="Log in">
+</form>
+<div th:insert="~{partial/footer::footer}"></div>
+</body>
+</html>
