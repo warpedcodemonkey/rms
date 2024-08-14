@@ -19,19 +19,20 @@ public class Account extends BaseVO {
     @OneToOne
     private User masterUser;
 
+    private String recoveryPassword;
 
     @ManyToMany
     @JoinTable(
-            name = "account_users", // Name of the junction table
-            joinColumns = @JoinColumn(name = "account_id"), // The foreign key column for Customer
-            inverseJoinColumns = @JoinColumn(name = "user_id") // The foreign key column for Email
+            name = "account_users",
+            joinColumns = @JoinColumn(name = "account_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private List<User> users = new ArrayList<>();
     @ManyToMany
     @JoinTable(
-            name = "account_livestock", // Name of the junction table
-            joinColumns = @JoinColumn(name = "account_id"), // The foreign key column for Customer
-            inverseJoinColumns = @JoinColumn(name = "livestock_id") // The foreign key column for Email
+            name = "account_livestock",
+            joinColumns = @JoinColumn(name = "account_id"),
+            inverseJoinColumns = @JoinColumn(name = "livestock_id")
     )
     private List<Livestock> livestock = new ArrayList<>();
 
@@ -95,11 +96,20 @@ public class Account extends BaseVO {
         this.membershipEnd = membershipEnd;
     }
 
+    public String getRecoveryPassword() {
+        return recoveryPassword;
+    }
+
+    public void setRecoveryPassword(String recoveryPassword) {
+        this.recoveryPassword = recoveryPassword;
+    }
+
     @Override
     public String toString() {
         return new StringJoiner(", ", Account.class.getSimpleName() + "[", "]")
                 .add("accountEmail=" + accountEmail)
                 .add("masterUser=" + masterUser)
+                .add("recoveryPassword='" + recoveryPassword + "'")
                 .add("users=" + users)
                 .add("livestock=" + livestock)
                 .add("signupDate=" + signupDate)

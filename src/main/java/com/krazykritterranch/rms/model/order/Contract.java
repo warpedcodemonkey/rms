@@ -22,9 +22,9 @@ public class Contract extends BaseVO {
 
     @ManyToMany
     @JoinTable(
-            name = "contract_products", // Name of the junction table
-            joinColumns = @JoinColumn(name = "contract_id"), // The foreign key column for Customer
-            inverseJoinColumns = @JoinColumn(name = "product_id") // The foreign key column for Email
+            name = "contract_products",
+            joinColumns = @JoinColumn(name = "contract_id"),
+            inverseJoinColumns = @JoinColumn(name = "product_id")
     )
     private List<Product> products = new ArrayList<>();
 

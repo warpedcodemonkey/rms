@@ -22,6 +22,12 @@ public class UserViewController {
             model.addAttribute("username", username);
             model.addAttribute("roles", roles);
         }
-        return "login_page";
+        return "home_page";
+    }
+
+    @GetMapping("/logout")
+    public String getLogout(ModelMap model, @AuthenticationPrincipal UserDetails userDetails){
+        userDetails = null;
+        return "home_page";
     }
 }

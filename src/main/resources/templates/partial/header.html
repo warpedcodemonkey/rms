@@ -1,8 +1,6 @@
 <header th:fragment="header">
     <p>Header</p>
-    <p align="right">
-        <div sec:authorize="isAuthenticated()">
-            <a th:href="@{/logout}" id="logout-link">Logout</a>
-        </div>
-    </p>
+    <div align="right" sec:authorize="isAuthenticated()">
+        <a th:href="@{/logout}" id="logout-link">Logout</a>
+    </div>
 </header>
