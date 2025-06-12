@@ -1,39 +1,63 @@
 package com.krazykritterranch.rms.model.user;
 
+import jakarta.persistence.*;
+import java.util.*;
 
-import com.krazykritterranch.rms.model.order.Order;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringJoiner;
-
+@Entity
+@DiscriminatorValue("CUSTOMER")
 public class Customer extends User {
 
-    @ManyToMany
+    @Column(name = "customer_number", unique = true)
+    private String customerNumber;
+
+    @Column(name = "emergency_contact")
+    private String emergencyContact;
+
+    @Column(name = "emergency_phone")
+    private String emergencyPhone;
+
+    // Many-to-Many relationship for vet permissions
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name="customer_orders",
+            name = "customer_vet_permissions",
             joinColumns = @JoinColumn(name = "customer_id"),
-            inverseJoinColumns = @JoinColumn(name = "order_id")
+            inverseJoinColumns = @JoinColumn(name = "vet_id")
     )
-    private List<Order> orders = new ArrayList<>();
+    private Set<Veterinarian> authorizedVets = new HashSet<>();
 
-
-    public List<Order> getOrders() {
-        return orders;
+    // Constructors
+    public Customer() {
+        super();
     }
 
-    public void setOrders(List<Order> orders) {
-        this.orders = orders;
+    public Customer(String username, String email, String password, String firstName, String lastName) {
+        super(username, email, password, firstName, lastName);
+        this.customerNumber = generateCustomerNumber();
     }
 
     @Override
-    public String toString() {
-        return new StringJoiner(", ", Customer.class.getSimpleName() + "[", "]")
-                .add("orders=" + orders)
-                .toString();
+    public String getUserType() {
+        return "CUSTOMER";
     }
+
+    private String generateCustomerNumber() {
+        return "CUST-" + System.currentTimeMillis();
+    }
+
+    public boolean hasAuthorizedVet(Long vetId) {
+        return authorizedVets.stream().anyMatch(vet -> vet.getId().equals(vetId));
+    }
+
+    // Getters and Setters
+    public String getCustomerNumber() { return customerNumber; }
+    public void setCustomerNumber(String customerNumber) { this.customerNumber = customerNumber; }
+
+    public String getEmergencyContact() { return emergencyContact; }
+    public void setEmergencyContact(String emergencyContact) { this.emergencyContact = emergencyContact; }
+
+    public String getEmergencyPhone() { return emergencyPhone; }
+    public void setEmergencyPhone(String emergencyPhone) { this.emergencyPhone = emergencyPhone; }
+
+    public Set<Veterinarian> getAuthorizedVets() { return authorizedVets; }
+    public void setAuthorizedVets(Set<Veterinarian> authorizedVets) { this.authorizedVets = authorizedVets; }
 }

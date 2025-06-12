@@ -1,149 +1,203 @@
 package com.krazykritterranch.rms.model.user;
 
-import com.krazykritterranch.rms.model.BaseVO;
-import com.krazykritterranch.rms.model.common.Account;
-import com.krazykritterranch.rms.model.common.Address;
-import com.krazykritterranch.rms.model.common.Email;
-import com.krazykritterranch.rms.model.common.Phone;
-
-
 import jakarta.persistence.*;
-import java.sql.Date;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringJoiner;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Entity
-@AttributeOverride(name = "id", column = @Column(name = "user_id"))
-public class User extends BaseVO {
-    @ManyToOne
-    @JoinColumn(name= "account_id")
-    private Account account;
-    private String userName;
+@Table(name = "users")
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "user_type", discriminatorType = DiscriminatorType.STRING)
+public abstract class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
+    private String username;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(name = "first_name", nullable = false)
     private String firstName;
+
+    @Column(name = "last_name", nullable = false)
     private String lastName;
-    private String passWord;
-    private Boolean active;
-    @ManyToOne
-    @JoinColumn(name = "email_id")
-    private Email email;
-    @ManyToOne
-    @JoinColumn(name = "phone_id")
-    private Phone phone;
-    @ManyToOne
-    @JoinColumn(name = "address_id")
-    private Address address;
-    private Date dateOfBirth;
-    @ManyToMany
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
+
+    // Many-to-Many relationship with Role
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name="user_roles",
+            name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name="role_id")
+            inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-    private List<Role> roles = new ArrayList<>();
+    private Set<Role> roles = new HashSet<>();
 
-    public String getUserName() {
-        return userName;
-    }
+    // Many-to-Many relationship with Permission (for custom permissions)
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_custom_permissions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> customPermissions = new HashSet<>();
 
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
+    // Constructors
+    public User() {}
 
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public String getPassWord() {
-        return passWord;
-    }
-
-    public void setPassWord(String passWord) {
-        this.passWord = passWord;
-    }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
-    }
-
-    public Email getEmail() {
-        return email;
-    }
-
-    public void setEmail(Email email) {
+    public User(String username, String email, String password, String firstName, String lastName) {
+        this.username = username;
         this.email = email;
+        this.password = password;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
-    public Phone getPhone() {
-        return phone;
-    }
+    // UserDetails implementation
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        Set<GrantedAuthority> authorities = new HashSet<>();
 
-    public void setPhone(Phone phone) {
-        this.phone = phone;
-    }
+        // Add role-based authorities
+        for (Role role : roles) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName()));
+            // Add permissions from roles
+            for (Permission permission : role.getPermissions()) {
+                authorities.add(new SimpleGrantedAuthority(permission.getName()));
+            }
+        }
 
-    public Address getAddress() {
-        return address;
-    }
+        // Add custom permissions
+        for (Permission permission : customPermissions) {
+            authorities.add(new SimpleGrantedAuthority(permission.getName()));
+        }
 
-    public void setAddress(Address address) {
-        this.address = address;
-    }
-
-    public Date getDateOfBirth() {
-        return dateOfBirth;
-    }
-
-    public void setDateOfBirth(Date dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
-
-    public List<Role> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(List<Role> roles) {
-        this.roles = roles;
-    }
-
-    public Account getAccount() {
-        return account;
-    }
-
-    public void setAccount(Account account) {
-        this.account = account;
+        return authorities;
     }
 
     @Override
-    public String toString() {
-        return new StringJoiner(", ", User.class.getSimpleName() + "[", "]")
-                .add("account=" + account)
-                .add("userName='" + userName + "'")
-                .add("firstName='" + firstName + "'")
-                .add("lastName='" + lastName + "'")
-                .add("passWord='" + passWord + "'")
-                .add("active=" + active)
-                .add("email=" + email)
-                .add("phone=" + phone)
-                .add("address=" + address)
-                .add("dateOfBirth=" + dateOfBirth)
-                .add("roles=" + roles)
-                .toString();
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return isActive;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return isActive;
+    }
+
+    // Abstract method to get user type
+    public abstract String getUserType();
+
+    // Helper methods
+    public boolean hasRole(String roleName) {
+        return roles.stream().anyMatch(role -> role.getName().equals(roleName));
+    }
+
+    public boolean hasPermission(String permissionName) {
+        // Check custom permissions
+        if (customPermissions.stream().anyMatch(p -> p.getName().equals(permissionName))) {
+            return true;
+        }
+        // Check role-based permissions
+        return roles.stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .anyMatch(permission -> permission.getName().equals(permissionName));
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
+
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+    public LocalDateTime getLastLogin() { return lastLogin; }
+    public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
+
+    public Set<Role> getRoles() { return roles; }
+    public void setRoles(Set<Role> roles) { this.roles = roles; }
+
+    public Set<Permission> getCustomPermissions() { return customPermissions; }
+    public void setCustomPermissions(Set<Permission> customPermissions) { this.customPermissions = customPermissions; }
+
+    public String getFullName() {
+        return firstName + " " + lastName;
     }
 }

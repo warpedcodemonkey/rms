@@ -1,13 +1,12 @@
 package com.krazykritterranch.rms.model.user;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
+import java.time.LocalDateTime;
+import java.util.*;
 @Entity
-@Table(name = "roles")
-public class Role {
+@Table(name = "permissions")
+public class Permission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,8 +18,11 @@ public class Role {
     @Column
     private String description;
 
-    @Column(name = "is_system_role")
-    private Boolean isSystemRole = false;
+    @Column
+    private String category;
+
+    @Column(name = "is_system_permission")
+    private Boolean isSystemPermission = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -28,47 +30,28 @@ public class Role {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Many-to-Many relationship with Permission
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "role_permissions",
-            joinColumns = @JoinColumn(name = "role_id"),
-            inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permission> permissions = new HashSet<>();
+    // Many-to-Many relationship with Role (mapped by permissions)
+    @ManyToMany(mappedBy = "permissions")
+    private Set<Role> roles = new HashSet<>();
 
-    // Many-to-Many relationship with User (mapped by roles)
-    @ManyToMany(mappedBy = "roles")
+    // Many-to-Many relationship with User for custom permissions (mapped by customPermissions)
+    @ManyToMany(mappedBy = "customPermissions")
     private Set<User> users = new HashSet<>();
 
     // Constructors
-    public Role() {}
+    public Permission() {}
 
-    public Role(String name, String description) {
+    public Permission(String name, String description, String category) {
         this.name = name;
         this.description = description;
+        this.category = category;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Role(String name, String description, Boolean isSystemRole) {
-        this(name, description);
-        this.isSystemRole = isSystemRole;
-    }
-
-    // Helper methods
-    public boolean hasPermission(String permissionName) {
-        return permissions.stream().anyMatch(p -> p.getName().equals(permissionName));
-    }
-
-    public void addPermission(Permission permission) {
-        permissions.add(permission);
-        permission.getRoles().add(this);
-    }
-
-    public void removePermission(Permission permission) {
-        permissions.remove(permission);
-        permission.getRoles().remove(this);
+    public Permission(String name, String description, String category, Boolean isSystemPermission) {
+        this(name, description, category);
+        this.isSystemPermission = isSystemPermission;
     }
 
     @PrePersist
@@ -92,8 +75,11 @@ public class Role {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public Boolean getIsSystemRole() { return isSystemRole; }
-    public void setIsSystemRole(Boolean isSystemRole) { this.isSystemRole = isSystemRole; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public Boolean getIsSystemPermission() { return isSystemPermission; }
+    public void setIsSystemPermission(Boolean isSystemPermission) { this.isSystemPermission = isSystemPermission; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
@@ -101,8 +87,8 @@ public class Role {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public Set<Permission> getPermissions() { return permissions; }
-    public void setPermissions(Set<Permission> permissions) { this.permissions = permissions; }
+    public Set<Role> getRoles() { return roles; }
+    public void setRoles(Set<Role> roles) { this.roles = roles; }
 
     public Set<User> getUsers() { return users; }
     public void setUsers(Set<User> users) { this.users = users; }
@@ -110,9 +96,9 @@ public class Role {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Role)) return false;
-        Role role = (Role) o;
-        return name != null && name.equals(role.name);
+        if (!(o instanceof Permission)) return false;
+        Permission permission = (Permission) o;
+        return name != null && name.equals(permission.name);
     }
 
     @Override
@@ -122,10 +108,13 @@ public class Role {
 
     @Override
     public String toString() {
-        return "Role{" +
+        return "Permission{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", description='" + description + '\'' +
+                ", category='" + category + '\'' +
                 '}';
     }
 }
+
+
