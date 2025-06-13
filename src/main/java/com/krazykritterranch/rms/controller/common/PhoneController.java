@@ -23,35 +23,42 @@ public class PhoneController {
 
     @GetMapping
     public ResponseEntity<List<Phone>> getAllPhones(){
-        return new ResponseEntity<>(phoneRepository.findAll(), HttpStatus.OK);
+        return new ResponseEntity<>(phoneService.getAllPhones(), HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Phone> getPhoneById(@PathVariable  Long id){
+    public ResponseEntity<Phone> getPhoneById(@PathVariable Long id){
         return phoneRepository.findById(id)
-                .map(phone -> new ResponseEntity<>(phone, HttpStatus.OK))
+                .map(phone -> new ResponseEntity<>(Phone.formatPhone(phone), HttpStatus.OK))
                 .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
-    @PostMapping
-    public ResponseEntity<Phone> createPhone(@RequestBody Phone phone){
-        return new ResponseEntity<>(phoneRepository.save(phone), HttpStatus.OK);
+
+    @GetMapping("/area-code/{areaCode}")
+    public ResponseEntity<List<Phone>> getPhonesByAreaCode(@PathVariable String areaCode){
+        return new ResponseEntity<>(phoneService.getByAreaCode(areaCode), HttpStatus.OK);
     }
 
-    @PutMapping("{id}")
+    @PostMapping
+    public ResponseEntity<Phone> createPhone(@RequestBody Phone phone){
+        return new ResponseEntity<>(phoneService.savePhone(phone), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
     public ResponseEntity<Phone> updatePhone(@PathVariable Long id, @RequestBody Phone phone){
-        Phone existingPhone = phoneRepository.findById(id).get();
-        if(existingPhone == null){
-            return ResponseEntity.notFound().build();
-        }
-        phone.setId(existingPhone.getId());
-        return new ResponseEntity<>(phoneRepository.save(phone), HttpStatus.OK);
+        return phoneRepository.findById(id)
+                .map(existingPhone -> {
+                    phone.setId(existingPhone.getId());
+                    return new ResponseEntity<>(phoneService.savePhone(phone), HttpStatus.OK);
+                })
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePhone(@PathVariable Long id){
-        phoneRepository.deleteById(id);
+        if (!phoneRepository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        phoneService.deletePhone(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
-
-    //TODO: Add null checks and item not found, or no results
 }

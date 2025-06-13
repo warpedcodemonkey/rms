@@ -10,6 +10,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Component
 public class TenantAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -34,7 +35,7 @@ public class TenantAuthenticationSuccessHandler implements AuthenticationSuccess
             }
 
             // Update last login
-            user.setLastLogin(java.time.LocalDateTime.now());
+            user.setLastLogin(LocalDateTime.now());
 
             // Redirect based on user type
             String redirectUrl = determineTargetUrl(user);

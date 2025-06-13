@@ -51,7 +51,7 @@ public class VetPermission extends BaseVO {
     }
 
     public boolean hasPermission(VetPermissionType permissionType) {
-        return isActive && permissions.contains(permissionType);
+        return isActive && permissions.contains(permissionType) && !isExpired();
     }
 
     public boolean isExpired() {

@@ -23,12 +23,14 @@ public class FeedController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Feed> getFeedById(@PathVariable Long id){
-        return new ResponseEntity<>(feedRepository.findById(id).get(), HttpStatus.OK);
+        return feedRepository.findById(id)
+                .map(feed -> new ResponseEntity<>(feed, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<Feed> saveFeed(@RequestBody Feed feed){
-        return new ResponseEntity<>(feedRepository.save(feed), HttpStatus.OK);
+        return new ResponseEntity<>(feedRepository.save(feed), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
@@ -42,6 +44,9 @@ public class FeedController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFeed(@PathVariable Long id){
+        if (!feedRepository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
         feedRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }

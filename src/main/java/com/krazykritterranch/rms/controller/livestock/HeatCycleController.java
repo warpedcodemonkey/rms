@@ -24,12 +24,14 @@ public class HeatCycleController {
 
     @GetMapping("/{id}")
     public ResponseEntity<HeatCycle> getById(@PathVariable Long id){
-        return new ResponseEntity<>(repository.findById(id).get(), HttpStatus.OK);
+        return repository.findById(id)
+                .map(heatCycle -> new ResponseEntity<>(heatCycle, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<HeatCycle> save(@RequestBody HeatCycle heatCycle){
-        return new ResponseEntity<>(repository.save(heatCycle), HttpStatus.OK);
+        return new ResponseEntity<>(repository.save(heatCycle), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
@@ -43,6 +45,9 @@ public class HeatCycleController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id){
+        if (!repository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
         repository.deleteById(id);
         return ResponseEntity.noContent().build();
     }

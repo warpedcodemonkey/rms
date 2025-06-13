@@ -1,6 +1,5 @@
 package com.krazykritterranch.rms.controller.livestock;
 
-import com.krazykritterranch.rms.model.livestock.Feed;
 import com.krazykritterranch.rms.model.livestock.Feeding;
 import com.krazykritterranch.rms.repositories.livestock.FeedingRepository;
 
@@ -24,12 +23,14 @@ public class FeedingController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Feeding> getById(@PathVariable Long id){
-        return new ResponseEntity<>(feedingRepository.findById(id).get(), HttpStatus.OK);
+        return feedingRepository.findById(id)
+                .map(feeding -> new ResponseEntity<>(feeding, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<Feeding> save(@RequestBody Feeding feeding){
-        return new ResponseEntity<>(feedingRepository.save(feeding), HttpStatus.OK);
+        return new ResponseEntity<>(feedingRepository.save(feeding), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
@@ -43,6 +44,9 @@ public class FeedingController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete (@PathVariable Long id){
+        if (!feedingRepository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
         feedingRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }

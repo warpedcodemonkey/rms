@@ -5,7 +5,6 @@ import com.krazykritterranch.rms.model.BaseVO;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Transient;
 import java.util.StringJoiner;
 
 @Entity
@@ -14,7 +13,6 @@ public class Email extends BaseVO {
     private String emailAccount;
     private String domain;
     private String tld;
-    private String emailAddress;
 
     public String getEmailAccount() {
         return emailAccount;
@@ -41,19 +39,39 @@ public class Email extends BaseVO {
     }
 
     public String getEmailAddress() {
-        return new StringBuilder().append(this.getEmailAccount())
-                .append("@")
-                .append(this.getDomain())
-                .append(".")
-                .append(this.tld)
-                .toString();
+        if (emailAccount != null && domain != null && tld != null) {
+            return new StringBuilder().append(this.getEmailAccount())
+                    .append("@")
+                    .append(this.getDomain())
+                    .append(".")
+                    .append(this.getTld())
+                    .toString();
+        }
+        return null;
     }
 
-    public void setEmailAddress(String emailAddress){
-        this.emailAddress = getEmailAddress();
+    public void setEmailAddress(String emailAddress) {
+        if (emailAddress != null && emailAddress.contains("@") && emailAddress.contains(".")) {
+            String[] parts = emailAddress.split("@");
+            if (parts.length == 2) {
+                this.emailAccount = parts[0];
+                String[] domainParts = parts[1].split("\\.");
+                if (domainParts.length >= 2) {
+                    this.domain = domainParts[0];
+                    this.tld = domainParts[domainParts.length - 1];
+                    // Handle cases like sub.domain.com
+                    if (domainParts.length > 2) {
+                        StringBuilder domainBuilder = new StringBuilder();
+                        for (int i = 0; i < domainParts.length - 1; i++) {
+                            if (i > 0) domainBuilder.append(".");
+                            domainBuilder.append(domainParts[i]);
+                        }
+                        this.domain = domainBuilder.toString();
+                    }
+                }
+            }
+        }
     }
-
-
 
     @Override
     public String toString() {
@@ -61,6 +79,7 @@ public class Email extends BaseVO {
                 .add("emailAccount='" + emailAccount + "'")
                 .add("domain='" + domain + "'")
                 .add("tld='" + tld + "'")
+                .add("emailAddress='" + getEmailAddress() + "'")
                 .toString();
     }
 }

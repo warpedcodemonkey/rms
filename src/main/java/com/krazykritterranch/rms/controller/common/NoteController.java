@@ -20,7 +20,6 @@ public class NoteController {
     @Autowired
     private NoteService noteService;
 
-
     @GetMapping
     public ResponseEntity<List<Note>> getAllNotes(){
         return new ResponseEntity<>(noteRepository.findAll(), HttpStatus.OK);
@@ -28,33 +27,32 @@ public class NoteController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Note> getNoteById(@PathVariable Long id){
-        return new ResponseEntity<>(noteRepository.findById(id).get(), HttpStatus.OK);
+        return noteRepository.findById(id)
+                .map(note -> new ResponseEntity<>(note, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<Note> saveNote(@RequestBody Note note){
-        return new ResponseEntity<>(noteRepository.save(note), HttpStatus.OK);
+        return new ResponseEntity<>(noteRepository.save(note), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Note> updateNote(@PathVariable Long id, @RequestBody Note note){
-        Note existingNote = noteRepository.findById(id).get();
-        if (existingNote == null){
-            return ResponseEntity.notFound().build();
-        }
-        note.setId(existingNote.getId());
-        return new ResponseEntity<>(noteRepository.save(note), HttpStatus.OK);
+        return noteRepository.findById(id)
+                .map(existingNote -> {
+                    note.setId(existingNote.getId());
+                    return new ResponseEntity<>(noteRepository.save(note), HttpStatus.OK);
+                })
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteNote(@PathVariable Long id){
-        Note existingNote = noteRepository.findById(id).get();
-        if (existingNote == null){
-            return ResponseEntity.notFound().build();
+        if (!noteRepository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        noteRepository.delete(existingNote);
+        noteRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-
-
 }

@@ -27,12 +27,14 @@ public class WeightController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Weight> getWeightById(@PathVariable Long id){
-        return new ResponseEntity<>(weightRepository.findById(id).get(), HttpStatus.OK);
+        return weightRepository.findById(id)
+                .map(weight -> new ResponseEntity<>(weight, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<Weight> saveWeight(@RequestBody Weight weight){
-        return new ResponseEntity<Weight>(weightRepository.save(weight), HttpStatus.OK);
+        return new ResponseEntity<>(weightRepository.save(weight), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
@@ -46,8 +48,10 @@ public class WeightController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteWeight(@PathVariable Long id){
+        if (!weightRepository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
         weightRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-
 }

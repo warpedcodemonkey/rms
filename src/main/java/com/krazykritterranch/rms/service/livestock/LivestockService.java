@@ -59,8 +59,8 @@ public class LivestockService {
 
         // Set account for new livestock
         if (livestock.getId() == null && tenantContext.isAccountUser()) {
-            // Set the account ID (you'll need to add this field to Livestock entity)
-            // livestock.setAccountId(tenantContext.getCurrentAccountId());
+            // The account should be set by the controller or through the livestock entity
+            // livestock.setAccount(accountRepository.findById(tenantContext.getCurrentAccountId()).orElse(null));
         }
 
         return livestockRepository.save(livestock);
@@ -71,9 +71,17 @@ public class LivestockService {
             return true;
         }
 
-        // You'll need to add account relationship to Livestock entity
-        // For now, simplified logic
-        return true;
+        if (tenantContext.isAccountUser()) {
+            return livestock.getAccount() != null &&
+                    livestock.getAccount().getId().equals(tenantContext.getCurrentAccountId());
+        }
+
+        if (tenantContext.isVeterinarian()) {
+            return livestock.getAccount() != null &&
+                    securityService.hasVetPermission(livestock.getAccount().getId(), VetPermissionType.VIEW_LIVESTOCK);
+        }
+
+        return false;
     }
 
     private boolean canEditLivestock(Livestock livestock) {
@@ -82,9 +90,8 @@ public class LivestockService {
         }
 
         if (tenantContext.isVeterinarian()) {
-            // Check if vet has edit permission
-            // Long accountId = livestock.getAccountId(); // You'll need to add this
-            // return securityService.hasVetPermission(accountId, VetPermissionType.EDIT_LIVESTOCK);
+            return livestock.getAccount() != null &&
+                    securityService.hasVetPermission(livestock.getAccount().getId(), VetPermissionType.EDIT_LIVESTOCK);
         }
 
         return false;

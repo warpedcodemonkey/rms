@@ -1,7 +1,5 @@
 package com.krazykritterranch.rms.controller.vendor;
 
-
-
 import com.krazykritterranch.rms.model.vendor.Vendor;
 import com.krazykritterranch.rms.repositories.vendor.VendorRepository;
 
@@ -14,7 +12,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/vendor")
-
 public class VendorController {
 
     @Autowired
@@ -27,25 +24,30 @@ public class VendorController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Vendor> getById(@PathVariable Long id){
-        return new ResponseEntity<>(repository.findById(id).get(), HttpStatus.OK);
+        return repository.findById(id)
+                .map(vendor -> new ResponseEntity<>(vendor, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<Vendor> save(@RequestBody Vendor vendor){
-        return new ResponseEntity<>(repository.save(vendor), HttpStatus.OK);
+        return new ResponseEntity<>(repository.save(vendor), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Vendor> update(@PathVariable Long id, @RequestBody Vendor vendor){
         return repository.findById(id)
-                .map(existingHeatCycle -> {
-                    vendor.setId(existingHeatCycle.getId());
+                .map(existingVendor -> {
+                    vendor.setId(existingVendor.getId());
                     return new ResponseEntity<>(repository.save(vendor), HttpStatus.OK);
                 }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id){
+        if (!repository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
         repository.deleteById(id);
         return ResponseEntity.noContent().build();
     }

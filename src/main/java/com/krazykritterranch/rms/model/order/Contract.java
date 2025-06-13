@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.StringJoiner;
 
 @Entity
-@AttributeOverride(name="id", column = @Column(name = "order_id"))
+@AttributeOverride(name="id", column = @Column(name = "contract_id"))
 public class Contract extends BaseVO {
 
     private Boolean contractAccepted;

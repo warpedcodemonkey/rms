@@ -24,27 +24,31 @@ public class VaccinationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Vaccination> getById(@PathVariable Long id){
-        return new ResponseEntity<>(repository.findById(id).get(), HttpStatus.OK);
+        return repository.findById(id)
+                .map(vaccination -> new ResponseEntity<>(vaccination, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
     public ResponseEntity<Vaccination> save(@RequestBody Vaccination vaccination){
-        return new ResponseEntity<>(repository.save(vaccination), HttpStatus.OK);
+        return new ResponseEntity<>(repository.save(vaccination), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Vaccination> update(@PathVariable Long id, @RequestBody Vaccination vaccination){
         return repository.findById(id)
-                .map(existingHeatCycle -> {
-                    vaccination.setId(existingHeatCycle.getId());
+                .map(existingVaccination -> {
+                    vaccination.setId(existingVaccination.getId());
                     return new ResponseEntity<>(repository.save(vaccination), HttpStatus.OK);
                 }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id){
+        if (!repository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
         repository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 }
-

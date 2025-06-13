@@ -12,6 +12,7 @@ import java.util.StringJoiner;
 
 
 @Entity
+@Table(name = "orders")
 @AttributeOverride(name = "id", column = @Column(name="order_id"))
 public class Order extends BaseVO {
 

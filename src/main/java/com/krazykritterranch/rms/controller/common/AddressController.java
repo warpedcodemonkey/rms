@@ -11,9 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 import java.util.List;
-
 
 @RestController
 @RequestMapping("/api/address")
@@ -29,7 +27,6 @@ public class AddressController {
     @Autowired
     private StateOrProvinceService stateOrProvinceService;
 
-
     @GetMapping
     public ResponseEntity<List<Address>> getAllAddresses(){
         List<Address> addresses = addressRepository.findAll();
@@ -44,9 +41,12 @@ public class AddressController {
 
     @GetMapping("/state/{stateId}")
     public ResponseEntity<List<Address>> listAddressByState(@PathVariable Long stateId){
-        StateOrProvince stateOrProvince = stateOrProvinceRepository.findById(stateId).get();
-        List<Address> addresses = addressRepository.listByState(stateOrProvince);
-        return new ResponseEntity<>(addresses, HttpStatus.OK);
+        return stateOrProvinceRepository.findById(stateId)
+                .map(stateOrProvince -> {
+                    List<Address> addresses = addressRepository.listByState(stateOrProvince);
+                    return new ResponseEntity<>(addresses, HttpStatus.OK);
+                })
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @GetMapping("/{id}")
@@ -54,13 +54,12 @@ public class AddressController {
         return addressRepository.findById(id)
                 .map(address -> new ResponseEntity<>(address, HttpStatus.OK))
                 .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-
     }
 
     @PostMapping
     public ResponseEntity<Address> saveAddress(@RequestBody Address address){
         Address retAddress = addressRepository.save(address);
-        return new ResponseEntity<>(retAddress, HttpStatus.OK);
+        return new ResponseEntity<>(retAddress, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
@@ -75,14 +74,11 @@ public class AddressController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteStateOrProvince(@PathVariable Long id) {
-        Address existing = addressRepository.findById(id).get();
-        if(existing == null){
+    public ResponseEntity<Void> deleteAddress(@PathVariable Long id) {
+        if (!addressRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
-        addressRepository.delete(existing);
+        addressRepository.deleteById(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
-
-    //TODO: Add null checks and item not found, or no results
 }
