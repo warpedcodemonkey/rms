@@ -3,14 +3,22 @@ package com.krazykritterranch.rms.controller.user;
 import com.krazykritterranch.rms.model.user.User;
 import com.krazykritterranch.rms.service.user.UserService;
 import com.krazykritterranch.rms.service.security.TenantContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
@@ -21,6 +29,9 @@ public class UserController {
 
     @Autowired
     private TenantContext tenantContext;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
@@ -133,5 +144,50 @@ public class UserController {
     public ResponseEntity<Boolean> canAddUserToAccount(@PathVariable Long accountId) {
         boolean canAdd = userService.canAddUserToAccount(accountId);
         return ResponseEntity.ok(canAdd);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+        try {
+            // Authenticate user
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
+
+            // Set authentication in security context
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // Get user details
+            User user = (User) authentication.getPrincipal();
+
+            // Return user info
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", user.getId());
+            response.put("username", user.getUsername());
+            response.put("email", user.getEmail());
+            response.put("firstName", user.getFirstName());
+            response.put("lastName", user.getLastName());
+            response.put("userType", user.getUserType());
+
+            return ResponseEntity.ok(response);
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Collections.singletonMap("error", "Invalid credentials"));
+        }
+    }
+
+    // Add this inner class for the request
+    public static class LoginRequest {
+        private String username;
+        private String password;
+
+        // Getters and setters
+        public String getUsername() { return username; }
+        public void setUsername(String username) { this.username = username; }
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
     }
 }

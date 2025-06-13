@@ -5,6 +5,7 @@ import com.krazykritterranch.rms.service.security.TenantAuthenticationSuccessHan
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -32,8 +33,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
         httpSecurity
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ADD THIS LINE
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(request -> request
+                        .requestMatchers(HttpMethod.POST, "/api/user/login").permitAll() // Specifically allow POST to login
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll() // Allow OPTIONS for CORS preflight
                         .requestMatchers("/", "/styles/*", "/js/*", "/registration", "/api/public/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/account/**").hasAnyRole("ADMIN", "ACCOUNT_USER", "VETERINARIAN")
@@ -48,7 +51,7 @@ public class SecurityConfig {
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
                         .permitAll())
-                .csrf(csrf -> csrf.disable()); // Add CSRF configuration
+                .csrf(csrf -> csrf.disable());
 
         return httpSecurity.build();
     }

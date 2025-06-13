@@ -3,6 +3,7 @@ package com.krazykritterranch.rms.service.system;
 import com.krazykritterranch.rms.model.user.*;
 import com.krazykritterranch.rms.repositories.user.PermissionRepository;
 import com.krazykritterranch.rms.repositories.user.RoleRepository;
+import com.krazykritterranch.rms.repositories.user.UserRepository;
 import com.krazykritterranch.rms.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -27,36 +28,60 @@ public class SystemInitializationService implements CommandLineRunner {
     private UserService userService;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) throws Exception {
         initializePermissions();
         initializeRoles();
+        createTestUser(); // Add this line
+        createAdminTestUser();
     }
 
+    private void createTestUser() {
+        // Check if test user already exists
+        if (userRepository.findByUsername("testuser").isEmpty()) {
+            // Create a Customer instance instead of anonymous User
+            Customer testUser = new Customer("testuser", "test@example.com", "password123", "John", "Doe");
 
-    private void createTestUsers() {
-        // Create a test customer if not exists
-        if (!userService.existsByUsername("testuser")) {
-            Customer testCustomer = new Customer();
-            testCustomer.setUsername("testuser");
-            testCustomer.setEmail("test@example.com");
-            testCustomer.setPassword(passwordEncoder.encode("password123"));
-            testCustomer.setFirstName("John");
-            testCustomer.setLastName("Doe");
-            testCustomer.setIsActive(true);
+            // Encode the password
+            testUser.setPassword(passwordEncoder.encode("password123"));
+            testUser.setIsActive(true);
 
-            // Add default role
-            Role customerRole = roleRepository.findByName("CUSTOMER").orElse(null);
-            if (customerRole != null) {
-                testCustomer.getRoles().add(customerRole);
-            }
+            // Add customer role
+            roleRepository.findByName("CUSTOMER").ifPresent(role -> {
+                testUser.getRoles().add(role);
+            });
 
-            userService.saveUser(testCustomer);
+            userRepository.save(testUser);
+            System.out.println("Created test user: testuser / password123");
         }
     }
 
+    private void createAdminTestUser() {
+        // Check if test admin user already exists
+        if (userRepository.findByUsername("admin").isEmpty()) {
+            // Create an Administrator instance
+            Administrator testAdmin = new Administrator("admin", "admin@example.com", "admin123", "Admin", "User");
+
+            // Encode the password
+            testAdmin.setPassword(passwordEncoder.encode("admin123"));
+            testAdmin.setIsActive(true);
+            testAdmin.setDepartment("IT");
+            testAdmin.setAccessLevel(10);
+
+            // Add admin role
+            roleRepository.findByName("ADMINISTRATOR").ifPresent(role -> {
+                testAdmin.getRoles().add(role);
+            });
+
+            userRepository.save(testAdmin);
+            System.out.println("Created test admin: admin / admin123");
+        }
+    }
 
     private void initializePermissions() {
         for (SystemPermissions sysPerm : SystemPermissions.values()) {
