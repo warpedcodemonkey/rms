@@ -28,10 +28,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
         httpSecurity
                 .authorizeHttpRequests(request -> request
-                        .requestMatchers("/", "/styles/*", "/js/*", "/registration", "/api/public/**", "/swagger-ui-custom.html").permitAll()
+                        .requestMatchers("/", "/styles/*", "/js/*", "/registration", "/api/public/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/account/**").hasAnyRole("ADMIN", "ACCOUNT_USER", "VETERINARIAN")
-
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
