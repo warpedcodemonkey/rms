@@ -1,6 +1,7 @@
 package com.krazykritterranch.rms.model.livestock;
 
 import com.krazykritterranch.rms.model.BaseVO;
+import com.krazykritterranch.rms.model.common.Account;
 import com.krazykritterranch.rms.model.common.Address;
 import com.krazykritterranch.rms.model.common.Note;
 import com.krazykritterranch.rms.model.common.Weight;
@@ -14,28 +15,42 @@ import java.util.StringJoiner;
 @Entity
 @AttributeOverride(name="id", column = @Column(name="livestock_id"))
 public class Livestock extends BaseVO {
+
     private String tagId;
+
+    // Add account relationship for multi-tenancy
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", nullable = false)
+    private Account account;
+
     @OneToOne
     @JoinColumn(name = "livestock_type_id")
     private LivestockType livestockType;
+
     @OneToOne
     @JoinColumn(name = "breed_id")
     private Breed breed;
+
     private Date dateOfBirth;
+
     @ManyToOne
     @JoinColumn(name = "mother_id")
     private Livestock mother;
+
     @ManyToOne
     @JoinColumn(name = "father_id")
     private Livestock father;
+
     @ManyToMany
     @JoinTable(
-            name = "livestock_vaccinations", // Name of the junction table
-            joinColumns = @JoinColumn(name = "livestock_id"), // The foreign key column for Customer
-            inverseJoinColumns = @JoinColumn(name = "vac_id") // The foreign key column for Email
+            name = "livestock_vaccinations",
+            joinColumns = @JoinColumn(name = "livestock_id"),
+            inverseJoinColumns = @JoinColumn(name = "vac_id")
     )
     private List<Vaccination> vaccinations = new ArrayList<>();
+
     private Date dateBred;
+
     @ManyToMany
     @JoinTable(
             name = "livestock_weights",
@@ -43,7 +58,9 @@ public class Livestock extends BaseVO {
             inverseJoinColumns = @JoinColumn(name = "weight_id")
     )
     private List<Weight> weights = new ArrayList<>();
+
     private String name;
+
     @OneToOne
     @JoinColumn(name ="address_id")
     private Address location;
@@ -72,146 +89,66 @@ public class Livestock extends BaseVO {
     )
     private List<HeatCycle> heatCycles = new ArrayList<>();
 
-
     private String description;
 
-    public String getTagId() {
-        return tagId;
-    }
+    // Getters and Setters
+    public String getTagId() { return tagId; }
+    public void setTagId(String tagId) { this.tagId = tagId; }
 
-    public void setTagId(String tagId) {
-        this.tagId = tagId;
-    }
+    public Account getAccount() { return account; }
+    public void setAccount(Account account) { this.account = account; }
 
-    public LivestockType getLivestockType() {
-        return livestockType;
-    }
+    public LivestockType getLivestockType() { return livestockType; }
+    public void setLivestockType(LivestockType livestockType) { this.livestockType = livestockType; }
 
-    public void setLivestockType(LivestockType livestockType) {
-        this.livestockType = livestockType;
-    }
+    public Breed getBreed() { return breed; }
+    public void setBreed(Breed breed) { this.breed = breed; }
 
-    public Breed getBreed() {
-        return breed;
-    }
+    public Date getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(Date dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
-    public void setBreed(Breed breed) {
-        this.breed = breed;
-    }
+    public Livestock getMother() { return mother; }
+    public void setMother(Livestock mother) { this.mother = mother; }
 
-    public Date getDateOfBirth() {
-        return dateOfBirth;
-    }
+    public Livestock getFather() { return father; }
+    public void setFather(Livestock father) { this.father = father; }
 
-    public void setDateOfBirth(Date dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
+    public List<Vaccination> getVaccinations() { return vaccinations; }
+    public void setVaccinations(List<Vaccination> vaccinations) { this.vaccinations = vaccinations; }
 
-    public Livestock getMother() {
-        return mother;
-    }
+    public Date getDateBred() { return dateBred; }
+    public void setDateBred(Date dateBred) { this.dateBred = dateBred; }
 
-    public void setMother(Livestock mother) {
-        this.mother = mother;
-    }
+    public List<Weight> getWeights() { return weights; }
+    public void setWeights(List<Weight> weights) { this.weights = weights; }
 
-    public Livestock getFather() {
-        return father;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public void setFather(Livestock father) {
-        this.father = father;
-    }
+    public Address getLocation() { return location; }
+    public void setLocation(Address location) { this.location = location; }
 
-    public List<Vaccination> getVaccinations() {
-        return vaccinations;
-    }
+    public List<Feeding> getFeedings() { return feedings; }
+    public void setFeedings(List<Feeding> feedings) { this.feedings = feedings; }
 
-    public void setVaccinations(List<Vaccination> vaccinations) {
-        this.vaccinations = vaccinations;
-    }
+    public List<Note> getNotes() { return notes; }
+    public void setNotes(List<Note> notes) { this.notes = notes; }
 
-    public Date getDateBred() {
-        return dateBred;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public void setDateBred(Date dateBred) {
-        this.dateBred = dateBred;
-    }
-
-    public List<Weight> getWeights() {
-        return weights;
-    }
-
-    public void setWeights(List<Weight> weights) {
-        this.weights = weights;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Address getLocation() {
-        return location;
-    }
-
-    public void setLocation(Address location) {
-        this.location = location;
-    }
-
-    public List<Feeding> getFeedings() {
-        return feedings;
-    }
-
-    public void setFeedings(List<Feeding> feedings) {
-        this.feedings = feedings;
-    }
-
-    public List<Note> getNotes() {
-        return notes;
-    }
-
-    public void setNotes(List<Note> notes) {
-        this.notes = notes;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public List<HeatCycle> getHeatCycles() {
-        return heatCycles;
-    }
-
-    public void setHeatCycles(List<HeatCycle> heatCycles) {
-        this.heatCycles = heatCycles;
-    }
+    public List<HeatCycle> getHeatCycles() { return heatCycles; }
+    public void setHeatCycles(List<HeatCycle> heatCycles) { this.heatCycles = heatCycles; }
 
     @Override
     public String toString() {
         return new StringJoiner(", ", Livestock.class.getSimpleName() + "[", "]")
                 .add("tagId='" + tagId + "'")
+                .add("account=" + (account != null ? account.getAccountNumber() : "null"))
                 .add("livestockType=" + livestockType)
                 .add("breed=" + breed)
                 .add("dateOfBirth=" + dateOfBirth)
-                .add("mother=" + mother)
-                .add("father=" + father)
-                .add("vaccinations=" + vaccinations)
-                .add("dateBred=" + dateBred)
-                .add("weights=" + weights)
                 .add("name='" + name + "'")
-                .add("location=" + location)
-                .add("feedings=" + feedings)
-                .add("notes=" + notes)
-                .add("heatCycles=" + heatCycles)
                 .add("description='" + description + "'")
                 .toString();
     }

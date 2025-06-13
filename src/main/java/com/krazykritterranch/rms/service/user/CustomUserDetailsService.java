@@ -1,7 +1,6 @@
-package com.krazykritterranch.rms.service;
+package com.krazykritterranch.rms.service.user;
 
 
-import com.krazykritterranch.rms.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;

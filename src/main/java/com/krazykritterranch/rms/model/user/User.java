@@ -36,9 +36,6 @@ public abstract class User implements UserDetails {
     @Column(name = "phone_number")
     private String phoneNumber;
 
-    @Column(name = "address")
-    private String address;
-
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -51,6 +48,11 @@ public abstract class User implements UserDetails {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    // For Account Users - which account they belong to (null for admin/vets)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "primary_account_id")
+    private Account primaryAccount;
+
     // Many-to-Many relationship with Role
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -59,15 +61,6 @@ public abstract class User implements UserDetails {
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
-
-    // Many-to-Many relationship with Permission (for custom permissions)
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_custom_permissions",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permission> customPermissions = new HashSet<>();
 
     // Constructors
     public User() {}
@@ -96,33 +89,20 @@ public abstract class User implements UserDetails {
             }
         }
 
-        // Add custom permissions
-        for (Permission permission : customPermissions) {
-            authorities.add(new SimpleGrantedAuthority(permission.getName()));
-        }
-
         return authorities;
     }
 
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    public boolean isAccountNonExpired() { return true; }
 
     @Override
-    public boolean isAccountNonLocked() {
-        return isActive;
-    }
+    public boolean isAccountNonLocked() { return isActive; }
 
     @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() {
-        return isActive;
-    }
+    public boolean isEnabled() { return isActive; }
 
     // Abstract method to get user type
     public abstract String getUserType();
@@ -133,14 +113,21 @@ public abstract class User implements UserDetails {
     }
 
     public boolean hasPermission(String permissionName) {
-        // Check custom permissions
-        if (customPermissions.stream().anyMatch(p -> p.getName().equals(permissionName))) {
-            return true;
-        }
-        // Check role-based permissions
         return roles.stream()
                 .flatMap(role -> role.getPermissions().stream())
                 .anyMatch(permission -> permission.getName().equals(permissionName));
+    }
+
+    public boolean isAccountUser() {
+        return primaryAccount != null;
+    }
+
+    public boolean isAdministrator() {
+        return hasRole("ADMIN") || hasRole("SUPER_ADMIN");
+    }
+
+    public boolean isVeterinarian() {
+        return hasRole("VETERINARIAN");
     }
 
     @PrePersist
@@ -176,9 +163,6 @@ public abstract class User implements UserDetails {
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    public String getAddress() { return address; }
-    public void setAddress(String address) { this.address = address; }
-
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -191,11 +175,11 @@ public abstract class User implements UserDetails {
     public LocalDateTime getLastLogin() { return lastLogin; }
     public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
 
+    public Account getPrimaryAccount() { return primaryAccount; }
+    public void setPrimaryAccount(Account primaryAccount) { this.primaryAccount = primaryAccount; }
+
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles; }
-
-    public Set<Permission> getCustomPermissions() { return customPermissions; }
-    public void setCustomPermissions(Set<Permission> customPermissions) { this.customPermissions = customPermissions; }
 
     public String getFullName() {
         return firstName + " " + lastName;

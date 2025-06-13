@@ -1,129 +1,124 @@
 package com.krazykritterranch.rms.controller.user;
 
-import com.krazykritterranch.rms.model.common.Address;
-import com.krazykritterranch.rms.model.common.Email;
-import com.krazykritterranch.rms.model.common.Phone;
 import com.krazykritterranch.rms.model.user.User;
-import com.krazykritterranch.rms.repositories.common.AddressRepository;
-import com.krazykritterranch.rms.repositories.common.EmailRepository;
-import com.krazykritterranch.rms.service.common.AddressService;
-import com.krazykritterranch.rms.service.common.EmailService;
-import com.krazykritterranch.rms.service.common.PhoneService;
 import com.krazykritterranch.rms.service.user.UserService;
+import com.krazykritterranch.rms.service.security.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/customer")
+@RequestMapping("/api/user")
 public class UserController {
 
     @Autowired
     private UserService userService;
 
     @Autowired
-    private PhoneService phoneService;
+    private TenantContext tenantContext;
 
-    @Autowired
-    private EmailService emailService;
-
-    @Autowired
-    private EmailRepository emailRepository;
-
-    @Autowired
-    private AddressService addressService;
-
-    @Autowired
-    private AddressRepository addressRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
     @GetMapping
-    public ResponseEntity<List<User>> getAllCustomers(){
-        return new ResponseEntity<>(userService.getAllCustomers(), HttpStatus.OK);
+    public ResponseEntity<List<User>> getAllUsers() {
+        // Security is handled in the service layer
+        List<User> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getCustomerById(@PathVariable Long id){
-        return new ResponseEntity<>(userService.findById(id), HttpStatus.OK);
+    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+        try {
+            User user = userService.findById(id);
+            return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
     }
 
-    @GetMapping("/search/{partialPhone}")
-    public ResponseEntity<List<User>> searchCustomerByPhone(@PathVariable String partialPhone){
-        return new ResponseEntity<>(userService.searchByPhone(partialPhone), HttpStatus.OK);
+    @GetMapping("/account/{accountId}")
+    @PreAuthorize("@securityService.canAccessAccount(#accountId)")
+    public ResponseEntity<List<User>> getUsersByAccount(@PathVariable Long accountId) {
+        List<User> users = userService.getUsersByAccount(accountId);
+        return ResponseEntity.ok(users);
     }
 
-    @GetMapping("/phone/{phoneNumber}")
-    public ResponseEntity<User> findByPhone(@PathVariable String phoneNumber){
-        return new ResponseEntity<>(userService.findByPhone(phoneNumber), HttpStatus.OK);
+    @GetMapping("/administrators")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<User>> getAllAdministrators() {
+        List<User> admins = userService.getAllAdministrators();
+        return ResponseEntity.ok(admins);
+    }
+
+    @GetMapping("/veterinarians")
+    public ResponseEntity<List<User>> getAllVeterinarians() {
+        List<User> vets = userService.getAllVeterinarians();
+        return ResponseEntity.ok(vets);
     }
 
     @PostMapping
-    public ResponseEntity<User> saveCustomer(@RequestBody User user){
-        //Save or Update Phones
-        user.setPhones(saveOrUpdatePhones(user.getPhones()));
-        user.setEmails(saveOrUpdateEmails(user.getEmails()));
-        user.setAddresses(saveOrUpdateAddresses(user.getAddresses()));
-//        user.setPassWord(passwordEncoder.encode(user.getPassWord()));
-        user.setActive(true);
-        return new ResponseEntity<>(userService.saveCustomer(user), HttpStatus.OK);
+    public ResponseEntity<User> createUser(@RequestBody User user) {
+        try {
+            User savedUser = userService.saveUser(user);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
     }
 
-    @PutMapping("/{customerId}")
-    public ResponseEntity<User> updateCustomer(@PathVariable Long customerId, @RequestBody User updatedUser) {
-        User existingUser = userService.findById(customerId);
-        if (existingUser == null) {
-            return ResponseEntity.notFound().build();
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+        try {
+            user.setId(id);
+            User updatedUser = userService.saveUser(user);
+            return ResponseEntity.ok(updatedUser);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-
-        updatedUser.setPhones(saveOrUpdatePhones(updatedUser.getPhones()));
-        updatedUser.setEmails(saveOrUpdateEmails(updatedUser.getEmails()));
-        updatedUser.setAddresses(saveOrUpdateAddresses(updatedUser.getAddresses()));
-
-        // Save the updated customer
-        User updated = userService.saveCustomer(updatedUser);
-        return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable Long id){
-        User existingUser = userService.findById(id);
-        if (existingUser == null){
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<Void> deactivateUser(@PathVariable Long id) {
+        try {
+            userService.deactivateUser(id);
+            return ResponseEntity.noContent().build();
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        existingUser.setActive(false);
-        userService.saveCustomer(existingUser);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    private List<Phone> saveOrUpdatePhones(List<Phone> phones){
-        List<Phone> savedPhones = new ArrayList<>();
-        for (Phone p : phones){
-            savedPhones.add(phoneService.savePhone(p));
+    @PutMapping("/{id}/reactivate")
+    public ResponseEntity<Void> reactivateUser(@PathVariable Long id) {
+        try {
+            userService.reactivateUser(id);
+            return ResponseEntity.ok().build();
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        return savedPhones;
     }
 
-    private List<Email> saveOrUpdateEmails(List<Email> emails){
-        List<Email> savedEmails = new ArrayList<>();
-        for(Email e: emails){
-            savedEmails.add(emailRepository.save(e));
-        }
-        return savedEmails;
+    // Role management
+    @PostMapping("/{userId}/roles/{roleName}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> assignRole(@PathVariable Long userId, @PathVariable String roleName) {
+        userService.assignRole(userId, roleName);
+        return ResponseEntity.ok().build();
     }
 
-    private List<Address> saveOrUpdateAddresses(List<Address> addresses){
-        List<Address> savedAddress = new ArrayList<>();
-        for(Address a : addresses){
-            savedAddress.add(addressRepository.save(a));
-        }
-        return savedAddress;
+    @DeleteMapping("/{userId}/roles/{roleName}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> removeRole(@PathVariable Long userId, @PathVariable String roleName) {
+        userService.removeRole(userId, roleName);
+        return ResponseEntity.ok().build();
     }
 
-
+    // Check if account can add more users
+    @GetMapping("/account/{accountId}/can-add-user")
+    @PreAuthorize("@securityService.canAccessAccount(#accountId)")
+    public ResponseEntity<Boolean> canAddUserToAccount(@PathVariable Long accountId) {
+        boolean canAdd = userService.canAddUserToAccount(accountId);
+        return ResponseEntity.ok(canAdd);
+    }
 }
