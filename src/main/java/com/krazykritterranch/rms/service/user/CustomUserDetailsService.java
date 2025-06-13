@@ -18,7 +18,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
+        // Use the new method that eagerly fetches roles and permissions
+        User user = userRepository.findByUsernameWithRoles(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
         if (!user.getIsActive()) {
@@ -29,7 +30,8 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     public UserDetails loadUserByEmail(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
+        // Use the new method that eagerly fetches roles and permissions
+        User user = userRepository.findByEmailWithRoles(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         if (!user.getIsActive()) {

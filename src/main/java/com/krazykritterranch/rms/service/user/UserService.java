@@ -30,13 +30,13 @@ public class UserService {
     @Autowired
     private TenantContext tenantContext;
 
-    // Public methods (no tenant restriction)
+    // Public methods (no tenant restriction) - updated to use eager fetching
     public User findByUsername(String username) {
-        return userRepository.findByUsername(username).orElse(null);
+        return userRepository.findByUsernameWithRoles(username).orElse(null);
     }
 
     public User findByEmail(String email) {
-        return userRepository.findByEmail(email).orElse(null);
+        return userRepository.findByEmailWithRoles(email).orElse(null);
     }
 
     // Add the missing findByLogin method that was referenced in CustomUserDetailsService

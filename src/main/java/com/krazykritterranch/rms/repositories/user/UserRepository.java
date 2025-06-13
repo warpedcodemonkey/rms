@@ -78,4 +78,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Find users by account and role
     @Query("SELECT u FROM User u JOIN u.roles r WHERE u.primaryAccount.id = :accountId AND r.name = :roleName")
     List<User> findByAccountIdAndRole(@Param("accountId") Long accountId, @Param("roleName") String roleName);
+
+    // Add this method to your UserRepository.java
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.permissions LEFT JOIN FETCH u.customPermissions WHERE u.username = :username")
+    Optional<User> findByUsernameWithRoles(@Param("username") String username);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.permissions LEFT JOIN FETCH u.customPermissions WHERE u.email = :email")
+    Optional<User> findByEmailWithRoles(@Param("email") String email);
 }
