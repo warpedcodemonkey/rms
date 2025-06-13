@@ -1,13 +1,12 @@
 package com.krazykritterranch.rms.service.system;
 
-import com.krazykritterranch.rms.model.user.Permission;
-import com.krazykritterranch.rms.model.user.Role;
-import com.krazykritterranch.rms.model.user.SystemPermissions;
-import com.krazykritterranch.rms.model.user.SystemRoles;
+import com.krazykritterranch.rms.model.user.*;
 import com.krazykritterranch.rms.repositories.user.PermissionRepository;
 import com.krazykritterranch.rms.repositories.user.RoleRepository;
+import com.krazykritterranch.rms.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,11 +23,40 @@ public class SystemInitializationService implements CommandLineRunner {
     @Autowired
     private PermissionRepository permissionRepository;
 
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     public void run(String... args) throws Exception {
         initializePermissions();
         initializeRoles();
     }
+
+
+    private void createTestUsers() {
+        // Create a test customer if not exists
+        if (!userService.existsByUsername("testuser")) {
+            Customer testCustomer = new Customer();
+            testCustomer.setUsername("testuser");
+            testCustomer.setEmail("test@example.com");
+            testCustomer.setPassword(passwordEncoder.encode("password123"));
+            testCustomer.setFirstName("John");
+            testCustomer.setLastName("Doe");
+            testCustomer.setIsActive(true);
+
+            // Add default role
+            Role customerRole = roleRepository.findByName("CUSTOMER").orElse(null);
+            if (customerRole != null) {
+                testCustomer.getRoles().add(customerRole);
+            }
+
+            userService.saveUser(testCustomer);
+        }
+    }
+
 
     private void initializePermissions() {
         for (SystemPermissions sysPerm : SystemPermissions.values()) {
@@ -44,6 +72,8 @@ public class SystemInitializationService implements CommandLineRunner {
             }
         }
     }
+
+
 
     private void initializeRoles() {
         for (SystemRoles sysRole : SystemRoles.values()) {
