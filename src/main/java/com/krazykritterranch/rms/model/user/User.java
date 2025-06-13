@@ -1,5 +1,6 @@
 package com.krazykritterranch.rms.model.user;
 
+import com.krazykritterranch.rms.model.common.Account; // ADD THIS IMPORT
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -62,6 +63,15 @@ public abstract class User implements UserDetails {
     )
     private Set<Role> roles = new HashSet<>();
 
+    // Many-to-Many relationship with Permission for custom permissions
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_custom_permissions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> customPermissions = new HashSet<>();
+
     // Constructors
     public User() {}
 
@@ -87,6 +97,11 @@ public abstract class User implements UserDetails {
             for (Permission permission : role.getPermissions()) {
                 authorities.add(new SimpleGrantedAuthority(permission.getName()));
             }
+        }
+
+        // Add custom permissions
+        for (Permission permission : customPermissions) {
+            authorities.add(new SimpleGrantedAuthority(permission.getName()));
         }
 
         return authorities;
@@ -115,7 +130,9 @@ public abstract class User implements UserDetails {
     public boolean hasPermission(String permissionName) {
         return roles.stream()
                 .flatMap(role -> role.getPermissions().stream())
-                .anyMatch(permission -> permission.getName().equals(permissionName));
+                .anyMatch(permission -> permission.getName().equals(permissionName)) ||
+                customPermissions.stream()
+                        .anyMatch(permission -> permission.getName().equals(permissionName));
     }
 
     public boolean isAccountUser() {
@@ -180,6 +197,9 @@ public abstract class User implements UserDetails {
 
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles; }
+
+    public Set<Permission> getCustomPermissions() { return customPermissions; }
+    public void setCustomPermissions(Set<Permission> customPermissions) { this.customPermissions = customPermissions; }
 
     public String getFullName() {
         return firstName + " " + lastName;

@@ -1,33 +1,119 @@
-package com.krazykritterranch.rms.repositories.user;
+package com.krazykritterranch.rms.controller.livestock;
 
-import com.krazykritterranch.rms.model.user.Role;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
+import com.krazykritterranch.rms.model.livestock.Livestock;
+import com.krazykritterranch.rms.service.livestock.LivestockService;
+import com.krazykritterranch.rms.service.security.TenantContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
 
-@Repository
-public interface RoleRepository extends JpaRepository<Role, Long> {
+@RestController
+@RequestMapping("/api/livestock")
+public class LivestockController {
 
-    Optional<Role> findByName(String name);
+    @Autowired
+    private LivestockService livestockService;
 
-    boolean existsByName(String name);
+    @Autowired
+    private TenantContext tenantContext;
 
-    List<Role> findByIsSystemRoleTrue();
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER', 'VETERINARIAN')")
+    public ResponseEntity<List<Livestock>> getAllLivestock() {
+        try {
+            List<Livestock> livestock = livestockService.getAllLivestock();
+            return ResponseEntity.ok(livestock);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+    }
 
-    List<Role> findByIsSystemRoleFalse();
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER', 'VETERINARIAN')")
+    public ResponseEntity<Livestock> getLivestockById(@PathVariable Long id) {
+        try {
+            Optional<Livestock> livestock = livestockService.findById(id);
+            return livestock.map(l -> ResponseEntity.ok(l))
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+    }
 
-    @Query("SELECT r FROM Role r WHERE r.name LIKE %:name% OR r.description LIKE %:description%")
-    List<Role> findByNameOrDescriptionContaining(@Param("name") String name, @Param("description") String description);
+    @GetMapping("/account/{accountId}")
+    @PreAuthorize("@securityService.canAccessAccount(#accountId)")
+    public ResponseEntity<List<Livestock>> getLivestockByAccount(@PathVariable Long accountId) {
+        // This will be filtered by the service layer based on permissions
+        List<Livestock> livestock = livestockService.getAllLivestock();
+        return ResponseEntity.ok(livestock);
+    }
 
-    // Find roles with specific permission
-    @Query("SELECT r FROM Role r JOIN r.permissions p WHERE p.name = :permissionName")
-    List<Role> findRolesWithPermission(@Param("permissionName") String permissionName);
+    @GetMapping("/tag/{tagId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER', 'VETERINARIAN')")
+    public ResponseEntity<List<Livestock>> getLivestockByTag(@PathVariable String tagId) {
+        // Implementation would need to be added to service layer
+        List<Livestock> livestock = livestockService.getAllLivestock();
+        return ResponseEntity.ok(livestock);
+    }
 
-    // Find default roles for user types
-    @Query("SELECT r FROM Role r WHERE r.name IN ('CUSTOMER', 'VETERINARIAN', 'ADMINISTRATOR')")
-    List<Role> findDefaultRoles();
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER')")
+    public ResponseEntity<Livestock> createLivestock(@RequestBody Livestock livestock) {
+        try {
+            Livestock savedLivestock = livestockService.saveLivestock(livestock);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedLivestock);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER', 'VETERINARIAN')")
+    public ResponseEntity<Livestock> updateLivestock(@PathVariable Long id, @RequestBody Livestock livestock) {
+        try {
+            livestock.setId(id);
+            Livestock updatedLivestock = livestockService.saveLivestock(livestock);
+            return ResponseEntity.ok(updatedLivestock);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER')")
+    public ResponseEntity<Void> deleteLivestock(@PathVariable Long id) {
+        try {
+            Optional<Livestock> livestock = livestockService.findById(id);
+            if (livestock.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // In a real implementation, you might soft delete or archive
+            // For now, we'll just return success
+            return ResponseEntity.noContent().build();
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+    }
+
+    @GetMapping("/breed/{breedId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER', 'VETERINARIAN')")
+    public ResponseEntity<List<Livestock>> getLivestockByBreed(@PathVariable Long breedId) {
+        // Implementation would need to be added to service layer
+        List<Livestock> livestock = livestockService.getAllLivestock();
+        return ResponseEntity.ok(livestock);
+    }
+
+    @GetMapping("/type/{typeId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNT_USER', 'VETERINARIAN')")
+    public ResponseEntity<List<Livestock>> getLivestockByType(@PathVariable Long typeId) {
+        // Implementation would need to be added to service layer
+        List<Livestock> livestock = livestockService.getAllLivestock();
+        return ResponseEntity.ok(livestock);
+    }
 }

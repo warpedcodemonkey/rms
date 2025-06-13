@@ -3,7 +3,7 @@ package com.krazykritterranch.rms.model.common;
 import com.krazykritterranch.rms.model.BaseVO;
 import com.krazykritterranch.rms.model.livestock.Livestock;
 import com.krazykritterranch.rms.model.user.User;
-import com.krazykritterranch.rms.model.user.Veterinarian;
+import com.krazykritterranch.rms.model.user.VetPermission; // ADD THIS IMPORT
 
 import jakarta.persistence.*;
 import java.sql.Date;
@@ -65,7 +65,7 @@ public class Account extends BaseVO {
 
     public boolean hasVetAccess(Long vetId) {
         return vetPermissions.stream()
-                .anyMatch(vp -> vp.getVeterinarian().getId().equals(vetId) && vp.isActive());
+                .anyMatch(vp -> vp.getVeterinarian().getId().equals(vetId) && vp.getIsActive());
     }
 
     // Getters and Setters
