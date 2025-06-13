@@ -3,6 +3,7 @@ package com.krazykritterranch.rms.controller.user;
 import com.krazykritterranch.rms.model.user.User;
 import com.krazykritterranch.rms.service.user.UserService;
 import com.krazykritterranch.rms.service.security.TenantContext;
+import com.krazykritterranch.rms.controller.user.dto.LoginRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -36,9 +37,11 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         try {
-            // Temporary: directly get all users for testing
+            // The UserService.getAllUsers() now properly handles tenant filtering
             List<User> users = userService.getAllUsers();
             return ResponseEntity.ok(users);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
             System.out.println("Error getting users: " + e.getMessage());
             e.printStackTrace();
@@ -62,30 +65,15 @@ public class UserController {
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         try {
             User user = userService.findById(id);
-            return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+            return user != null ?
+                    ResponseEntity.ok(user) :
+                    ResponseEntity.notFound().build();
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            System.out.println("Error getting user by ID: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
-
-    @GetMapping("/account/{accountId}")
-    @PreAuthorize("@securityService.canAccessAccount(#accountId)")
-    public ResponseEntity<List<User>> getUsersByAccount(@PathVariable Long accountId) {
-        List<User> users = userService.getUsersByAccount(accountId);
-        return ResponseEntity.ok(users);
-    }
-
-    @GetMapping("/administrators")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getAllAdministrators() {
-        List<User> admins = userService.getAllAdministrators();
-        return ResponseEntity.ok(admins);
-    }
-
-    @GetMapping("/veterinarians")
-    public ResponseEntity<List<User>> getAllVeterinarians() {
-        List<User> vets = userService.getAllVeterinarians();
-        return ResponseEntity.ok(vets);
     }
 
     @PostMapping
@@ -95,17 +83,24 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            System.out.println("Error creating user: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
         try {
-            user.setId(id);
-            User updatedUser = userService.saveUser(user);
+            User updatedUser = userService.updateUser(id, user);
             return ResponseEntity.ok(updatedUser);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            System.out.println("Error updating user: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -116,6 +111,11 @@ public class UserController {
             return ResponseEntity.noContent().build();
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            System.out.println("Error deactivating user: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -126,6 +126,11 @@ public class UserController {
             return ResponseEntity.ok().build();
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            System.out.println("Error reactivating user: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -133,23 +138,42 @@ public class UserController {
     @PostMapping("/{userId}/roles/{roleName}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> assignRole(@PathVariable Long userId, @PathVariable String roleName) {
-        userService.assignRole(userId, roleName);
-        return ResponseEntity.ok().build();
+        try {
+            userService.assignRole(userId, roleName);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            System.out.println("Error assigning role: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @DeleteMapping("/{userId}/roles/{roleName}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> removeRole(@PathVariable Long userId, @PathVariable String roleName) {
-        userService.removeRole(userId, roleName);
-        return ResponseEntity.ok().build();
+        try {
+            userService.removeRole(userId, roleName);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            System.out.println("Error removing role: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // Check if account can add more users
     @GetMapping("/account/{accountId}/can-add-user")
     @PreAuthorize("@securityService.canAccessAccount(#accountId)")
     public ResponseEntity<Boolean> canAddUserToAccount(@PathVariable Long accountId) {
-        boolean canAdd = userService.canAddUserToAccount(accountId);
-        return ResponseEntity.ok(canAdd);
+        try {
+            boolean canAdd = userService.canAddUserToAccount(accountId);
+            return ResponseEntity.ok(canAdd);
+        } catch (Exception e) {
+            System.out.println("Error checking user limit: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/login")
@@ -176,6 +200,13 @@ public class UserController {
                         .body(Collections.singletonMap("error", "User not found"));
             }
 
+            // Set tenant context for this session
+            tenantContext.setCurrentUserId(user.getId());
+            tenantContext.setUserType(user.getUserType());
+            if (user.getPrimaryAccount() != null) {
+                tenantContext.setCurrentAccountId(user.getPrimaryAccount().getId());
+            }
+
             // Return user info including roles
             Map<String, Object> response = new HashMap<>();
             response.put("id", user.getId());
@@ -184,34 +215,26 @@ public class UserController {
             response.put("firstName", user.getFirstName());
             response.put("lastName", user.getLastName());
             response.put("userType", user.getUserType());
-            response.put("roles", user.getRoles().stream()
-                    .map(role -> role.getName())
-                    .collect(java.util.stream.Collectors.toList()));
+            response.put("isAdmin", user.isAdministrator());
+            response.put("roles", user.getRoles().stream().map(role -> role.getName()).toList());
 
-            System.out.println("Login successful for user: " + user.getUsername() + " with roles: " + response.get("roles"));
+            // Add account info if applicable
+            if (user.getPrimaryAccount() != null) {
+                response.put("accountId", user.getPrimaryAccount().getId());
+                response.put("accountName", user.getPrimaryAccount().getFarmName());
+            }
+
             return ResponseEntity.ok(response);
 
         } catch (BadCredentialsException e) {
-            System.out.println("Login failed: Bad credentials for " + loginRequest.getUsername());
+            System.out.println("Bad credentials for username: " + loginRequest.getUsername());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Collections.singletonMap("error", "Invalid credentials"));
+                    .body(Collections.singletonMap("error", "Invalid username or password"));
         } catch (Exception e) {
             System.out.println("Login error: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Collections.singletonMap("error", "Login failed"));
+                    .body(Collections.singletonMap("error", "Internal server error"));
         }
-    }
-
-    // Add this inner class for the request
-    public static class LoginRequest {
-        private String username;
-        private String password;
-
-        // Getters and setters
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
     }
 }

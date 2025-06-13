@@ -18,7 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.authentication.Http403ForbiddenEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -33,7 +33,7 @@ public class SecurityConfig {
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
-    // API Security Configuration
+    // API Security Configuration - Higher priority to handle /api/** first
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -48,12 +48,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRATOR")
                         .requestMatchers("/api/account/**").hasAnyRole("ADMINISTRATOR", "CUSTOMER", "VETERINARIAN")
                         .anyRequest().authenticated())
+                // Use HTTP 403 Forbidden instead of redirect for API endpoints
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new Http403ForbiddenEntryPoint()))
                 .httpBasic(httpBasic -> {}); // Use HTTP Basic for API
 
         return http.build();
     }
 
-    // Web Security Configuration
+    // Web Security Configuration - Lower priority for web pages
     @Bean
     @Order(2)
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
