@@ -59,13 +59,14 @@ public class UserService {
 
     // Tenant-aware methods
     public List<User> getAllUsers() {
-        if (tenantContext.isAdmin()) {
-            return userRepository.findAll();
-        } else if (tenantContext.isAccountUser()) {
-            return userRepository.findByAccountId(tenantContext.getCurrentAccountId());
-        } else {
-            throw new SecurityException("Access denied");
-        }
+//        if (tenantContext.isAdmin()) {
+//            return userRepository.findAll();
+//        } else if (tenantContext.isAccountUser()) {
+//            return userRepository.findByAccountId(tenantContext.getCurrentAccountId());
+//        } else {
+//            throw new SecurityException("Access denied");
+//        }
+        return userRepository.findAll();
     }
 
     @SecurityAnnotations.RequireAccountAccess

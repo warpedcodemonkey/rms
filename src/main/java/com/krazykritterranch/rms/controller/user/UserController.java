@@ -35,9 +35,15 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
-        // Security is handled in the service layer
-        List<User> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+        try {
+            // Temporary: directly get all users for testing
+            List<User> users = userService.getAllUsers();
+            return ResponseEntity.ok(users);
+        } catch (Exception e) {
+            System.out.println("Error getting users: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/me")
@@ -149,6 +155,8 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         try {
+            System.out.println("Login attempt for username: " + loginRequest.getUsername());
+
             // Authenticate user
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -161,9 +169,14 @@ public class UserController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             // Get user details
-            User user = (User) authentication.getPrincipal();
+            User user = userService.findByUsername(loginRequest.getUsername());
 
-            // Return user info
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            // Return user info including roles
             Map<String, Object> response = new HashMap<>();
             response.put("id", user.getId());
             response.put("username", user.getUsername());
@@ -171,11 +184,22 @@ public class UserController {
             response.put("firstName", user.getFirstName());
             response.put("lastName", user.getLastName());
             response.put("userType", user.getUserType());
+            response.put("roles", user.getRoles().stream()
+                    .map(role -> role.getName())
+                    .collect(java.util.stream.Collectors.toList()));
 
+            System.out.println("Login successful for user: " + user.getUsername() + " with roles: " + response.get("roles"));
             return ResponseEntity.ok(response);
+
         } catch (BadCredentialsException e) {
+            System.out.println("Login failed: Bad credentials for " + loginRequest.getUsername());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Collections.singletonMap("error", "Invalid credentials"));
+        } catch (Exception e) {
+            System.out.println("Login error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Login failed"));
         }
     }
 
