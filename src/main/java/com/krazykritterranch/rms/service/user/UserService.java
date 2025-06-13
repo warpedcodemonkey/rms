@@ -39,6 +39,16 @@ public class UserService {
         return userRepository.findByEmail(email).orElse(null);
     }
 
+    // Add the missing findByLogin method that was referenced in CustomUserDetailsService
+    public User findByLogin(String login) {
+        // Try to find by username first, then by email
+        User user = findByUsername(login);
+        if (user == null) {
+            user = findByEmail(login);
+        }
+        return user;
+    }
+
     public boolean existsByUsername(String username) {
         return userRepository.existsByUsername(username);
     }

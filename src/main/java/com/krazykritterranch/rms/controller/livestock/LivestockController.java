@@ -1,52 +1,33 @@
-package com.krazykritterranch.rms.controller.livestock;
+package com.krazykritterranch.rms.repositories.user;
 
-
-import com.krazykritterranch.rms.model.livestock.Livestock;
-import com.krazykritterranch.rms.repositories.livestock.LivestockRepository;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import com.krazykritterranch.rms.model.user.Role;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
-@RestController
-@RequestMapping("/api/livestock")
+@Repository
+public interface RoleRepository extends JpaRepository<Role, Long> {
 
-public class LivestockController {
+    Optional<Role> findByName(String name);
 
-    @Autowired
-    private LivestockRepository repository;
+    boolean existsByName(String name);
 
-    @GetMapping
-    public ResponseEntity<List<Livestock>> getAll(){
-        return new ResponseEntity<>(repository.findAll(), HttpStatus.OK);
-    }
+    List<Role> findByIsSystemRoleTrue();
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Livestock> getById(@PathVariable Long id){
-        return new ResponseEntity<>(repository.findById(id).get(), HttpStatus.OK);
-    }
+    List<Role> findByIsSystemRoleFalse();
 
-    @PostMapping
-    public ResponseEntity<Livestock> save(@RequestBody Livestock livestock){
-        return new ResponseEntity<>(repository.save(livestock), HttpStatus.OK);
-    }
+    @Query("SELECT r FROM Role r WHERE r.name LIKE %:name% OR r.description LIKE %:description%")
+    List<Role> findByNameOrDescriptionContaining(@Param("name") String name, @Param("description") String description);
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Livestock> update(@PathVariable Long id, @RequestBody Livestock livestock){
-        return repository.findById(id)
-                .map(existingHeatCycle -> {
-                    livestock.setId(existingHeatCycle.getId());
-                    return new ResponseEntity<>(repository.save(livestock), HttpStatus.OK);
-                }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-    }
+    // Find roles with specific permission
+    @Query("SELECT r FROM Role r JOIN r.permissions p WHERE p.name = :permissionName")
+    List<Role> findRolesWithPermission(@Param("permissionName") String permissionName);
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id){
-        repository.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
+    // Find default roles for user types
+    @Query("SELECT r FROM Role r WHERE r.name IN ('CUSTOMER', 'VETERINARIAN', 'ADMINISTRATOR')")
+    List<Role> findDefaultRoles();
 }
-

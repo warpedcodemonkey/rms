@@ -45,6 +45,20 @@ public class AccountService {
         return accountRepository.findAll();
     }
 
+    public Account save(Account account) {
+        // Security check - only allow saving if user has access
+        if (account.getId() != null) {
+            Optional<Account> existing = accountRepository.findById(account.getId());
+            if (existing.isPresent()) {
+                if (!canAccessAccount(existing.get())) {
+                    throw new SecurityException("Access denied");
+                }
+            }
+        }
+
+        return accountRepository.save(account);
+    }
+
     public Account createAccount(Account account, User masterUser) {
         account.setMasterUser(masterUser);
         account.setSignupDate(new java.sql.Date(System.currentTimeMillis()));
@@ -52,8 +66,10 @@ public class AccountService {
 
         Account savedAccount = accountRepository.save(account);
 
-        // Set the master user's primary account
-        masterUser.setPrimaryAccount(savedAccount);
+        // Set the master user's primary account if provided
+        if (masterUser != null) {
+            masterUser.setPrimaryAccount(savedAccount);
+        }
 
         return savedAccount;
     }
@@ -143,5 +159,21 @@ public class AccountService {
             permission.setIsActive(false);
             vetPermissionRepository.save(permission);
         });
+    }
+
+    private boolean canAccessAccount(Account account) {
+        if (tenantContext.isAdmin()) {
+            return true;
+        }
+
+        if (tenantContext.isAccountUser()) {
+            return account.getId().equals(tenantContext.getCurrentAccountId());
+        }
+
+        if (tenantContext.isVeterinarian()) {
+            return account.hasVetAccess(tenantContext.getCurrentUserId());
+        }
+
+        return false;
     }
 }

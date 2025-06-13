@@ -1,16 +1,28 @@
 package com.krazykritterranch.rms.repositories.user;
 
+import com.krazykritterranch.rms.controller.common.AccountController;
+import com.krazykritterranch.rms.model.common.Account;
 import com.krazykritterranch.rms.model.user.Permission;
+import com.krazykritterranch.rms.model.user.VetPermission;
+import com.krazykritterranch.rms.service.common.AccountService;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Repository;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
+
+
 
     Optional<Permission> findByName(String name);
 
@@ -50,7 +62,7 @@ public ResponseEntity<Account> updateAccount(@PathVariable Long id, @RequestBody
 @PreAuthorize("@securityService.canAccessAccount(#accountId)")
 public ResponseEntity<VetPermission> grantVetAccess(
         @PathVariable Long accountId,
-        @RequestBody VetAccessRequest request) {
+        @RequestBody AccountController.VetAccessRequest request) {
 
     VetPermission permission = accountService.grantVetAccess(
             accountId,
@@ -102,20 +114,5 @@ public ResponseEntity<List<Account>> getVetAccessibleAccounts() {
     return ResponseEntity.ok(accounts);
 }
 
-// Inner class for vet access requests
-public static class VetAccessRequest {
-    private Veterinarian veterinarian;
-    private Set<VetPermissionType> permissions;
-    private LocalDateTime expiresAt;
 
-    // Getters and setters
-    public Veterinarian getVeterinarian() { return veterinarian; }
-    public void setVeterinarian(Veterinarian veterinarian) { this.veterinarian = veterinarian; }
-
-    public Set<VetPermissionType> getPermissions() { return permissions; }
-    public void setPermissions(Set<VetPermissionType> permissions) { this.permissions = permissions; }
-
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
-}
 }

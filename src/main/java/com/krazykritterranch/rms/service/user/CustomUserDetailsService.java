@@ -1,30 +1,41 @@
 package com.krazykritterranch.rms.service.user;
 
-
+import com.krazykritterranch.rms.model.user.User;
+import com.krazykritterranch.rms.repositories.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class CustomUserDetailsService implements UserDetailsService {
 
     @Autowired
-    private UserService userService;
+    private UserRepository userRepository;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        com.krazykritterranch.rms.model.user.User byLogin = userService.findByLogin(username);
-        if (byLogin == null) {
-            return null;
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+
+        if (!user.getIsActive()) {
+            throw new UsernameNotFoundException("User account is disabled: " + username);
         }
-        return User.builder()
-                .username(byLogin.getUserName())
-                .password(byLogin.getPassWord())
-                .roles(byLogin.getRoles().toString())
-                .build();
+
+        return user; // User class implements UserDetails
     }
 
+    public UserDetails loadUserByEmail(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+
+        if (!user.getIsActive()) {
+            throw new UsernameNotFoundException("User account is disabled: " + email);
+        }
+
+        return user;
+    }
 }
