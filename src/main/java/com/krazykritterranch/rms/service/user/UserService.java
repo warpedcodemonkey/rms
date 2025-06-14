@@ -71,61 +71,47 @@ public class UserService {
         return userRepository.existsByEmail(email);
     }
 
-    // Tenant-aware methods with proper filtering
+    // Administrative method - admins only
+    @SecurityAnnotations.RequireAdmin
     public List<User> getAllUsers() {
-        if (tenantContext.isAdmin()) {
-            // Administrators can see all users across all accounts
-            return userRepository.findAll();
-        } else if (tenantContext.isAccountUser()) {
-            // Customer users can only see users within their own account
-            return userRepository.findByAccountId(tenantContext.getCurrentAccountId());
-        } else if (tenantContext.isVeterinarian()) {
-            // Veterinarians can see users from accounts they have access to
-            return userRepository.findByVeterinarianAccess(tenantContext.getCurrentUserId());
-        } else {
-            throw new SecurityException("Access denied: Unable to determine user context");
-        }
+        return userRepository.findAll();
     }
 
+    // Account-scoped user access
     @SecurityAnnotations.RequireAccountAccess
     public List<User> getUsersByAccount(Long accountId) {
-        return userRepository.findByAccountId(accountId);
-    }
-
-    @SecurityAnnotations.RequireAdmin
-    public List<User> getAllAdministrators() {
-        return userRepository.findAdministrators();
-    }
-
-    public List<User> getAllVeterinarians() {
-        return userRepository.findVeterinarians();
-    }
-
-    public User findById(Long id) {
-        Optional<User> user = userRepository.findById(id);
-        if (user.isEmpty()) {
-            return null;
-        }
-
-        User foundUser = user.get();
-
-        // Security check based on tenant context
         if (tenantContext.isAdmin()) {
-            return foundUser; // Admins can see any user
+            return userRepository.findByAccountId(accountId);
         } else if (tenantContext.isAccountUser()) {
-            // Account users can only see users in their account
-            if (foundUser.getPrimaryAccount() != null &&
+            if (!accountId.equals(tenantContext.getCurrentAccountId())) {
+                throw new SecurityException("Access denied");
+            }
+            return userRepository.findByAccountId(accountId);
+        } else if (tenantContext.isVeterinarian()) {
+            // Veterinarians cannot access user management data for other users
+            throw new SecurityException("Veterinarians cannot access user management data");
+        }
+        throw new SecurityException("Access denied");
+    }
+
+    // Enhanced findById with tenant security
+    public User findById(Long id) {
+        if (tenantContext.isAdmin()) {
+            return userRepository.findById(id).orElse(null);
+        } else if (tenantContext.isAccountUser()) {
+            User foundUser = userRepository.findById(id).orElse(null);
+            if (foundUser != null && foundUser.getPrimaryAccount() != null &&
                     foundUser.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId())) {
                 return foundUser;
             }
         } else if (tenantContext.isVeterinarian()) {
-            // Vets can see users in accounts they have access to
-            if (foundUser.getPrimaryAccount() != null) {
-                // Check if veterinarian has access to this user's account
-                return hasVetPermissionForAccount(foundUser.getPrimaryAccount().getId()) ? foundUser : null;
+            // Veterinarians can only access their OWN user record
+            Long currentUserId = tenantContext.getCurrentUserId();
+            if (currentUserId != null && currentUserId.equals(id)) {
+                return userRepository.findById(id).orElse(null);
             }
+            throw new SecurityException("Veterinarians can only access their own user profile");
         }
-
         throw new SecurityException("Access denied");
     }
 
@@ -161,6 +147,14 @@ public class UserService {
             throw new IllegalArgumentException("User not found");
         }
 
+        // Additional security check: allow veterinarians to update their own profile only
+        if (tenantContext.isVeterinarian()) {
+            Long currentUserId = tenantContext.getCurrentUserId();
+            if (!currentUserId.equals(id)) {
+                throw new SecurityException("Veterinarians can only update their own profile");
+            }
+        }
+
         // Update common fields (only if provided in DTO)
         if (updateDto.getUsername() != null && !updateDto.getUsername().trim().isEmpty()) {
             existingUser.setUsername(updateDto.getUsername().trim());
@@ -170,16 +164,26 @@ public class UserService {
             existingUser.setEmail(updateDto.getEmail().trim());
         }
 
-        if (updateDto.getFirstName() != null) {
+        if (updateDto.getFirstName() != null && !updateDto.getFirstName().trim().isEmpty()) {
             existingUser.setFirstName(updateDto.getFirstName().trim());
         }
 
-        if (updateDto.getLastName() != null) {
+        if (updateDto.getLastName() != null && !updateDto.getLastName().trim().isEmpty()) {
             existingUser.setLastName(updateDto.getLastName().trim());
         }
 
         if (updateDto.getPhoneNumber() != null) {
             existingUser.setPhoneNumber(updateDto.getPhoneNumber().trim());
+        }
+
+        // Handle password updates separately with proper encoding
+        if (updateDto.getNewPassword() != null && !updateDto.getNewPassword().trim().isEmpty()) {
+            // Allow users to change their own password, and admins to change any password
+            if (tenantContext.isAdmin() || existingUser.getId().equals(tenantContext.getCurrentUserId())) {
+                existingUser.setPassword(passwordEncoder.encode(updateDto.getNewPassword().trim()));
+            } else {
+                throw new SecurityException("You can only change your own password");
+            }
         }
 
         // Only admins or the user themselves can change active status
@@ -188,15 +192,7 @@ public class UserService {
             existingUser.setIsActive(updateDto.getIsActive());
         }
 
-        // Handle password change if provided
-        if (updateDto.getNewPassword() != null && !updateDto.getNewPassword().trim().isEmpty()) {
-            // Users can change their own password, or admins can change any password
-            if (tenantContext.isAdmin() || existingUser.getId().equals(tenantContext.getCurrentUserId())) {
-                existingUser.setPassword(passwordEncoder.encode(updateDto.getNewPassword()));
-            } else {
-                throw new SecurityException("You can only change your own password");
-            }
-        }
+        existingUser.setUpdatedAt(LocalDateTime.now());
 
         // Update type-specific fields based on user type
         switch (existingUser.getUserType()) {
@@ -225,7 +221,109 @@ public class UserService {
         return userRepository.save(existingUser);
     }
 
+    // Delete user method - admins and account users only
+    @SecurityAnnotations.RequireAccountAccess
+    public void deleteUser(Long userId) {
+        // Only admins and account users can delete users, NOT veterinarians
+        if (tenantContext.isVeterinarian()) {
+            throw new SecurityException("Veterinarians cannot modify other user accounts");
+        }
+
+        User user = findById(userId); // This already includes security checks
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        // Additional business logic checks
+        if (tenantContext.isAccountUser()) {
+            // Account users can only delete users from their own account
+            if (!user.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId())) {
+                throw new SecurityException("Cannot delete user from different account");
+            }
+
+            // Check if this would violate account user limits
+            if (user.getUserType().equals("ADMINISTRATOR")) {
+                throw new SecurityException("Cannot delete account administrator");
+            }
+        }
+
+        // Soft delete - set inactive instead of hard delete
+        user.setIsActive(false);
+        user.setDeactivatedAt(LocalDateTime.now());
+        user.setDeactivatedBy(tenantContext.getCurrentUserId());
+        userRepository.save(user);
+    }
+
+    // Reactivate user method
+    @SecurityAnnotations.RequireAccountAccess
+    public User reactivateUser(Long userId) {
+        // Only admins and account users can reactivate users, NOT veterinarians
+        if (tenantContext.isVeterinarian()) {
+            throw new SecurityException("Veterinarians cannot modify other user accounts");
+        }
+
+        User user = findById(userId); // This already includes security checks
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        if (tenantContext.isAccountUser()) {
+            // Check account user limits before reactivating
+            Long accountId = tenantContext.getCurrentAccountId();
+            if (!canAddUserToAccount(accountId)) {
+                throw new IllegalArgumentException("Account has reached maximum user limit");
+            }
+        }
+
+        user.setIsActive(true);
+        user.setReactivatedAt(LocalDateTime.now());
+        user.setReactivatedBy(tenantContext.getCurrentUserId());
+        user.setDeactivatedAt(null);
+        user.setDeactivatedBy(null);
+
+        return userRepository.save(user);
+    }
+
+    // Update password method with security
+    public void updateUserPassword(Long userId, String newPassword) {
+        User user = findById(userId); // This already includes security checks
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        // Allow veterinarians to update their own password
+        if (tenantContext.isVeterinarian()) {
+            Long currentUserId = tenantContext.getCurrentUserId();
+            if (!currentUserId.equals(userId)) {
+                throw new SecurityException("Veterinarians can only change their own password");
+            }
+        }
+
+        // Additional security checks for non-veterinarians
+        if (tenantContext.isAccountUser()) {
+            // Account users can only update passwords in their own account
+            if (!user.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId())) {
+                throw new SecurityException("Cannot update password for user in different account");
+            }
+
+            // Account users cannot change admin passwords
+            if (user.getUserType().equals("ADMINISTRATOR") &&
+                    !tenantContext.getCurrentUserId().equals(userId)) {
+                throw new SecurityException("Cannot change administrator password");
+            }
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
     public void assignRole(Long userId, String roleName) {
+        // Only admins can assign roles
+        if (!tenantContext.isAdmin()) {
+            throw new SecurityException("Only administrators can assign roles");
+        }
+
         User user = findById(userId);
         if (user == null) {
             throw new IllegalArgumentException("User not found");
@@ -241,6 +339,11 @@ public class UserService {
     }
 
     public void removeRole(Long userId, String roleName) {
+        // Only admins can remove roles
+        if (!tenantContext.isAdmin()) {
+            throw new SecurityException("Only administrators can remove roles");
+        }
+
         User user = findById(userId);
         if (user == null) {
             throw new IllegalArgumentException("User not found");
@@ -249,22 +352,6 @@ public class UserService {
         user.getRoles().removeIf(role -> role.getName().equals(roleName));
         userRepository.save(user);
     }
-
-    // Helper methods
-    private boolean isPasswordChanged(User user) {
-        if (user.getId() == null) {
-            return true; // New user
-        }
-
-        User existingUser = userRepository.findById(user.getId()).orElse(null);
-        if (existingUser == null) {
-            return true;
-        }
-
-        // Check if the password is different (not encoded)
-        return !passwordEncoder.matches(user.getPassword(), existingUser.getPassword());
-    }
-
 
     public Map<String, Object> getAccountUserStats(Long accountId) {
         return accountRepository.findById(accountId)
@@ -279,9 +366,51 @@ public class UserService {
                 .orElse(Collections.emptyMap());
     }
 
+    // Method expected by UserController for user deletion checking
+    public Map<String, Object> getUserDeletionInfo(Long userId) {
+        User user = findById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        Map<String, Object> deletionInfo = new HashMap<>();
+        deletionInfo.put("canDelete", true);
+        deletionInfo.put("hasActiveData", false); // Could check for livestock, contracts, etc.
+        deletionInfo.put("warnings", Collections.emptyList());
+
+        // Add logic here to check if user has dependent data
+        // For example: active livestock, contracts, etc.
+
+        return deletionInfo;
+    }
+
+    // Check if veterinarian has access to specific account - helper method
+    public boolean hasVetPermissionForAccount(Long accountId) {
+        if (!tenantContext.isVeterinarian()) {
+            return false;
+        }
+        return vetPermissionRepository
+                .findActivePermissionByVetAndAccount(tenantContext.getCurrentUserId(), accountId)
+                .isPresent();
+    }
+
+    // Helper methods
+    public boolean isPasswordChanged(User user) {
+        if (user.getId() == null) {
+            return true; // New user
+        }
+
+        User existingUser = userRepository.findById(user.getId()).orElse(null);
+        if (existingUser == null) {
+            return true;
+        }
+
+        // Check if the password is different (not encoded)
+        return !passwordEncoder.matches(user.getPassword(), existingUser.getPassword());
+    }
 
     // Helper method for updating Customer-specific fields
-    private void updateCustomerFields(Customer customer, UserUpdateDTO updateDto) {
+    public void updateCustomerFields(Customer customer, UserUpdateDTO updateDto) {
         if (updateDto.getCustomerNumber() != null && !updateDto.getCustomerNumber().trim().isEmpty()) {
             // Only admins can change customer numbers, or if it's empty/null currently
             if (tenantContext.isAdmin() || customer.getCustomerNumber() == null || customer.getCustomerNumber().trim().isEmpty()) {
@@ -299,7 +428,7 @@ public class UserService {
     }
 
     // Helper method for updating Administrator-specific fields
-    private void updateAdministratorFields(Administrator admin, UserUpdateDTO updateDto) {
+    public void updateAdministratorFields(Administrator admin, UserUpdateDTO updateDto) {
         // Only allow other admins to update admin-specific fields
         if (!tenantContext.isAdmin()) {
             return; // Skip admin field updates if current user is not admin
@@ -315,8 +444,17 @@ public class UserService {
     }
 
     // Helper method for updating Veterinarian-specific fields
-    private void updateVeterinarianFields(Veterinarian vet, UserUpdateDTO updateDto) {
-        if (updateDto.getLicenseNumber() != null) {
+    public void updateVeterinarianFields(Veterinarian vet, UserUpdateDTO updateDto) {
+        // Veterinarians can update their own profile, admins can update any vet profile
+        if (tenantContext.isVeterinarian()) {
+            Long currentUserId = tenantContext.getCurrentUserId();
+            if (!currentUserId.equals(vet.getId())) {
+                throw new SecurityException("Veterinarians can only update their own profile");
+            }
+        }
+
+        // Update veterinarian-specific fields using the correct DTO field names
+        if (updateDto.getLicenseNumber() != null && !updateDto.getLicenseNumber().trim().isEmpty()) {
             vet.setLicenseNumber(updateDto.getLicenseNumber().trim());
         }
 
@@ -336,307 +474,4 @@ public class UserService {
             vet.setYearsExperience(updateDto.getYearsExperience());
         }
     }
-
-    // Add this method to UserService.java if it doesn't exist
-    public boolean hasVetPermissionForAccount(Long accountId) {
-        if (!tenantContext.isVeterinarian()) {
-            return false;
-        }
-
-        // This should check the VetPermission table
-        // Implementation depends on your existing vet permission logic
-        // For now, returning false as placeholder
-        return false; // TODO: Implement actual vet permission check
-    }
-
-
-    /**
-     * Validates if a user can be deleted by checking for associated data
-     */
-    public String validateUserDeletion(Long userId) {
-        User user = findById(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        // Check if user has livestock data (prevents deletion)
-        if (hasLivestockData(userId)) {
-            return "Cannot delete user: User has associated livestock data. Please transfer or remove livestock first.";
-        }
-
-        // Check if user has veterinary permissions granted to others
-        if (hasVetPermissions(userId)) {
-            return "Cannot delete user: User has veterinary permissions. Please revoke permissions first.";
-        }
-
-        // Check if user has pending veterinary appointments
-        if (hasPendingAppointments(userId)) {
-            return "Cannot delete user: User has pending appointments. Please complete or cancel appointments first.";
-        }
-
-        // Check if user is the primary account owner
-        if (isPrimaryAccountOwner(userId)) {
-            return "Cannot delete user: User is the primary account owner. Please transfer ownership first.";
-        }
-
-        // Check if this is the last active admin (prevent system lockout)
-        if (isLastActiveAdmin(userId)) {
-            return "Cannot delete user: This is the last active administrator. System must have at least one active admin.";
-        }
-
-        return null; // No validation errors
-    }
-
-    /**
-     * Gets information about what would be affected by deleting this user
-     */
-    public Map<String, Object> getUserDeletionInfo(Long userId) {
-        User user = findById(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        Map<String, Object> info = new HashMap<>();
-        info.put("userId", userId);
-        info.put("username", user.getUsername());
-        info.put("userType", user.getUserType());
-        info.put("isActive", user.getIsActive());
-        info.put("canDelete", validateUserDeletion(userId) == null);
-        info.put("validationError", validateUserDeletion(userId));
-
-        // Count associated data
-        Map<String, Integer> associatedData = new HashMap<>();
-        associatedData.put("livestockCount", getLivestockCount(userId));
-        associatedData.put("vetPermissionsCount", getVetPermissionCount(userId));
-        associatedData.put("appointmentsCount", getPendingAppointmentsCount(userId));
-
-        info.put("associatedData", associatedData);
-
-        // Deletion recommendations
-        if (validateUserDeletion(userId) != null) {
-            info.put("recommendations", getDeletionRecommendations(userId));
-        }
-
-        return info;
-    }
-
-    /**
-     * Permanently deletes a user and all associated data
-     */
-    @Transactional
-    public void permanentlyDeleteUser(Long userId) {
-        User user = findById(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        // Final validation before deletion
-        String validationError = validateUserDeletion(userId);
-        if (validationError != null) {
-            throw new IllegalStateException("Cannot delete user: " + validationError);
-        }
-
-        try {
-            // Remove user from roles
-            user.getRoles().clear();
-            userRepository.save(user);
-
-            // Remove any veterinary permissions related to this user
-            removeAllVetPermissions(userId);
-
-            // Remove user from any shared access permissions
-            removeSharedAccessPermissions(userId);
-
-            // Archive any audit logs (don't delete for compliance)
-            archiveUserAuditLogs(userId);
-
-            // Finally delete the user record
-            userRepository.deleteById(userId);
-
-            System.out.println("User permanently deleted: " + user.getUsername() + " (ID: " + userId + ")");
-
-        } catch (Exception e) {
-            System.err.println("Error during permanent user deletion: " + e.getMessage());
-            throw new RuntimeException("Failed to permanently delete user", e);
-        }
-    }
-
-    /**
-     * Enhanced deactivate user with better logging
-     */
-
-    public void deactivateUser(Long id) {
-        User user = findById(id);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        if (!user.getIsActive()) {
-            throw new IllegalArgumentException("User is already inactive");
-        }
-
-        user.setIsActive(false);
-        user.setDeactivatedAt(LocalDateTime.now());
-        user.setDeactivatedBy(tenantContext.getCurrentUserId());
-
-        userRepository.save(user);
-
-        System.out.println("User deactivated: " + user.getUsername() + " (ID: " + id + ")");
-    }
-
-    /**
-     * Enhanced reactivate user with validation
-     */
-
-    public void reactivateUser(Long id) {
-        User user = findById(id);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        if (user.getIsActive()) {
-            throw new IllegalArgumentException("User is already active");
-        }
-
-        user.setIsActive(true);
-        user.setDeactivatedAt(null);
-        user.setDeactivatedBy(null);
-        user.setReactivatedAt(LocalDateTime.now());
-        user.setReactivatedBy(tenantContext.getCurrentUserId());
-
-        userRepository.save(user);
-
-        System.out.println("User reactivated: " + user.getUsername() + " (ID: " + id + ")");
-    }
-
-    /**
-     * Logs user deletion for audit purposes
-     */
-    public void logUserDeletion(Long userId, String reason, Long deletedBy) {
-        try {
-            User user = findById(userId);
-            if (user != null) {
-                // Create audit log entry
-                Map<String, Object> auditData = new HashMap<>();
-                auditData.put("action", "USER_PERMANENT_DELETE");
-                auditData.put("deletedUserId", userId);
-                auditData.put("deletedUsername", user.getUsername());
-                auditData.put("deletedUserType", user.getUserType());
-                auditData.put("reason", reason);
-                auditData.put("deletedBy", deletedBy);
-                auditData.put("deletedAt", LocalDateTime.now());
-
-                // Log to system (you can implement proper audit logging here)
-                System.out.println("AUDIT: User deletion logged: " + auditData);
-
-                // You could save this to an audit_log table if you have one
-                // auditLogService.log(auditData);
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to log user deletion: " + e.getMessage());
-            // Don't fail the deletion if logging fails
-        }
-    }
-
-// Helper methods for validation
-
-    private boolean hasVetPermissions(Long userId) {
-        // Check if user is a veterinarian with permissions or has granted permissions to vets
-        if (tenantContext.isVeterinarian() && userId.equals(tenantContext.getCurrentUserId())) {
-            return vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now()).size() > 0;
-        }
-        return false;
-    }
-
-    private int getVetPermissionCount(Long userId) {
-        // Count vet permissions related to this user
-        return (int) vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now()).size();
-    }
-
-    private void removeAllVetPermissions(Long userId) {
-        // Remove vet permissions where this user is involved as a veterinarian
-        List<VetPermission> permissions = vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now());
-        for (VetPermission permission : permissions) {
-            permission.setIsActive(false);
-            vetPermissionRepository.save(permission);
-        }
-    }
-
-
-
-    private boolean isPrimaryAccountOwner(Long userId) {
-        // Check if user is the primary owner of an account
-        if (tenantContext.getCurrentAccountId() != null) {
-            return accountRepository.findById(tenantContext.getCurrentAccountId())
-                    .map(account -> account.getMasterUser() != null && account.getMasterUser().getId().equals(userId))
-                    .orElse(false);
-        }
-        return false;
-    }
-
-
-
-    private int getLivestockCount(Long userId) {
-        // Return count of livestock associated with user
-        return 0; // Placeholder
-    }
-
-    private int getPendingAppointmentsCount(Long userId) {
-        // Return count of pending appointments
-        return 0; // Placeholder
-    }
-
-    private java.util.List<String> getDeletionRecommendations(Long userId) {
-        java.util.List<String> recommendations = new java.util.ArrayList<>();
-
-        if (hasLivestockData(userId)) {
-            recommendations.add("Transfer or archive livestock data before deletion");
-        }
-
-        if (hasVetPermissions(userId)) {
-            recommendations.add("Revoke all veterinary permissions before deletion");
-        }
-
-        if (hasPendingAppointments(userId)) {
-            recommendations.add("Complete or cancel all pending appointments");
-        }
-
-        if (isPrimaryAccountOwner(userId)) {
-            recommendations.add("Transfer account ownership to another user");
-        }
-
-        return recommendations;
-    }
-
-    private boolean hasLivestockData(Long userId) {
-        // TODO: Implement livestock data check
-        // This should check if user has any livestock records
-        return false; // Placeholder
-    }
-
-    private boolean hasPendingAppointments(Long userId) {
-        // TODO: Implement pending appointments check
-        // This should check if user has any pending vet appointments
-        return false; // Placeholder
-    }
-
-    private boolean isLastActiveAdmin(Long userId) {
-        // Check if this is the last active administrator
-        long activeAdminCount = userRepository.countActiveAdministrators();
-        User user = findById(userId);
-        return user != null && user.getUserType().equals("ADMINISTRATOR") && activeAdminCount <= 1;
-    }
-
-    private void removeSharedAccessPermissions(Long userId) {
-        // Remove any shared access permissions this user might have granted
-        // TODO: Implement when shared access feature is built
-    }
-
-    private void archiveUserAuditLogs(Long userId) {
-        // Archive audit logs for compliance
-        // TODO: Implement when audit logging system is built
-    }
-
-
-
 }
