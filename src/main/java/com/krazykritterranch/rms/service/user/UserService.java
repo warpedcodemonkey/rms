@@ -1,9 +1,9 @@
 package com.krazykritterranch.rms.service.user;
 
-import com.krazykritterranch.rms.model.user.Role;
-import com.krazykritterranch.rms.model.user.User;
+import com.krazykritterranch.rms.model.user.*;
 import com.krazykritterranch.rms.repositories.user.RoleRepository;
 import com.krazykritterranch.rms.repositories.user.UserRepository;
+import com.krazykritterranch.rms.repositories.user.VetPermissionRepository;
 import com.krazykritterranch.rms.repositories.user.VeterinarianRepository;
 import com.krazykritterranch.rms.service.security.SecurityAnnotations;
 import com.krazykritterranch.rms.service.security.TenantContext;
@@ -13,9 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.krazykritterranch.rms.repositories.common.AccountRepository;
 import com.krazykritterranch.rms.controller.user.dto.UserUpdateDTO;
-import com.krazykritterranch.rms.model.user.Customer;
-import com.krazykritterranch.rms.model.user.Administrator;
-import com.krazykritterranch.rms.model.user.Veterinarian;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.HashMap;
@@ -41,7 +39,10 @@ public class UserService {
     private AccountRepository accountRepository;
 
     @Autowired
-    private VeterinarianRepository vetPermissionRepository;
+    private VeterinarianRepository veterinarianRepository;
+
+    @Autowired
+    private VetPermissionRepository vetPermissionRepository;
 
     // Public methods (no tenant restriction) - updated to use eager fetching
     public User findByUsername(String username) {
@@ -406,7 +407,7 @@ public class UserService {
         // Count associated data
         Map<String, Integer> associatedData = new HashMap<>();
         associatedData.put("livestockCount", getLivestockCount(userId));
-        associatedData.put("vetPermissionsCount", getVetPermissionsCount(userId));
+        associatedData.put("vetPermissionsCount", getVetPermissionCount(userId));
         associatedData.put("appointmentsCount", getPendingAppointmentsCount(userId));
 
         info.put("associatedData", associatedData);
@@ -486,7 +487,7 @@ public class UserService {
     /**
      * Enhanced reactivate user with validation
      */
-    @Override
+
     public void reactivateUser(Long id) {
         User user = findById(id);
         if (user == null) {
@@ -539,51 +540,45 @@ public class UserService {
 
 // Helper methods for validation
 
-    private boolean hasLivestockData(Long userId) {
-        // Check if user has livestock associated with them
-        // This would need to be implemented based on your livestock relationships
-        return false; // Placeholder - implement based on your data model
-    }
-
     private boolean hasVetPermissions(Long userId) {
-        // Check if user has granted vet permissions to others
-        return vetPermissionRepository.existsByCustomerId(userId);
+        // Check if user is a veterinarian with permissions or has granted permissions to vets
+        if (tenantContext.isVeterinarian() && userId.equals(tenantContext.getCurrentUserId())) {
+            return vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now()).size() > 0;
+        }
+        return false;
     }
 
-    private boolean hasPendingAppointments(Long userId) {
-        // Check if user has pending appointments
-        // This would need to be implemented if you have appointment functionality
-        return false; // Placeholder
+    private int getVetPermissionCount(Long userId) {
+        // Count vet permissions related to this user
+        return (int) vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now()).size();
     }
+
+    private void removeAllVetPermissions(Long userId) {
+        // Remove vet permissions where this user is involved as a veterinarian
+        List<VetPermission> permissions = vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now());
+        for (VetPermission permission : permissions) {
+            permission.setIsActive(false);
+            vetPermissionRepository.save(permission);
+        }
+    }
+
+
 
     private boolean isPrimaryAccountOwner(Long userId) {
         // Check if user is the primary owner of an account
         if (tenantContext.getCurrentAccountId() != null) {
             return accountRepository.findById(tenantContext.getCurrentAccountId())
-                    .map(account -> account.getPrimaryOwnerId() != null && account.getPrimaryOwnerId().equals(userId))
+                    .map(account -> account.getMasterUser() != null && account.getMasterUser().getId().equals(userId))
                     .orElse(false);
         }
         return false;
     }
 
-    private boolean isLastActiveAdmin(Long userId) {
-        User user = findById(userId);
-        if (!"ADMINISTRATOR".equals(user.getUserType())) {
-            return false;
-        }
 
-        // Count active administrators
-        long activeAdminCount = userRepository.countActiveAdministrators();
-        return activeAdminCount <= 1;
-    }
 
     private int getLivestockCount(Long userId) {
         // Return count of livestock associated with user
         return 0; // Placeholder
-    }
-
-    private int getVetPermissionsCount(Long userId) {
-        return (int) vetPermissionRepository.countByCustomerId(userId);
     }
 
     private int getPendingAppointmentsCount(Long userId) {
@@ -613,20 +608,35 @@ public class UserService {
         return recommendations;
     }
 
-    private void removeAllVetPermissions(Long userId) {
-        // Remove vet permissions where this user is involved
-        vetPermissionRepository.deleteByCustomerId(userId);
-        vetPermissionRepository.deleteByVeterinarianId(userId);
+    private boolean hasLivestockData(Long userId) {
+        // TODO: Implement livestock data check
+        // This should check if user has any livestock records
+        return false; // Placeholder
+    }
+
+    private boolean hasPendingAppointments(Long userId) {
+        // TODO: Implement pending appointments check
+        // This should check if user has any pending vet appointments
+        return false; // Placeholder
+    }
+
+    private boolean isLastActiveAdmin(Long userId) {
+        // Check if this is the last active administrator
+        long activeAdminCount = userRepository.countActiveAdministrators();
+        User user = findById(userId);
+        return user != null && user.getUserType().equals("ADMINISTRATOR") && activeAdminCount <= 1;
     }
 
     private void removeSharedAccessPermissions(Long userId) {
-        // Remove any shared access permissions
-        // This would depend on your specific implementation
+        // Remove any shared access permissions this user might have granted
+        // TODO: Implement when shared access feature is built
     }
 
     private void archiveUserAuditLogs(Long userId) {
-        // Archive (don't delete) audit logs for compliance
-        // This would depend on whether you have audit logging implemented
+        // Archive audit logs for compliance
+        // TODO: Implement when audit logging system is built
     }
+
+
 
 }

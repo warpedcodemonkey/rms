@@ -55,6 +55,19 @@ public abstract class User implements UserDetails {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    // Add missing deactivation/reactivation tracking fields
+    @Column(name = "deactivated_at")
+    private LocalDateTime deactivatedAt;
+
+    @Column(name = "deactivated_by")
+    private Long deactivatedBy;
+
+    @Column(name = "reactivated_at")
+    private LocalDateTime reactivatedAt;
+
+    @Column(name = "reactivated_by")
+    private Long reactivatedBy;
+
     // For Account Users - which account they belong to (null for admin/vets)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "primary_account_id")
@@ -212,5 +225,45 @@ public abstract class User implements UserDetails {
 
     public String getFullName() {
         return firstName + " " + lastName;
+    }
+
+    public Boolean getActive() {
+        return isActive;
+    }
+
+    public void setActive(Boolean active) {
+        isActive = active;
+    }
+
+    public LocalDateTime getDeactivatedAt() {
+        return deactivatedAt;
+    }
+
+    public void setDeactivatedAt(LocalDateTime deactivatedAt) {
+        this.deactivatedAt = deactivatedAt;
+    }
+
+    public Long getDeactivatedBy() {
+        return deactivatedBy;
+    }
+
+    public void setDeactivatedBy(Long deactivatedBy) {
+        this.deactivatedBy = deactivatedBy;
+    }
+
+    public LocalDateTime getReactivatedAt() {
+        return reactivatedAt;
+    }
+
+    public void setReactivatedAt(LocalDateTime reactivatedAt) {
+        this.reactivatedAt = reactivatedAt;
+    }
+
+    public Long getReactivatedBy() {
+        return reactivatedBy;
+    }
+
+    public void setReactivatedBy(Long reactivatedBy) {
+        this.reactivatedBy = reactivatedBy;
     }
 }

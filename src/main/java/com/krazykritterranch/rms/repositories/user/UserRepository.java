@@ -24,7 +24,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /**
      * Count active administrators in the system
      */
-    @Query("SELECT COUNT(u) FROM User u WHERE u.userType = 'ADMINISTRATOR' AND u.isActive = true")
+    @Query("SELECT COUNT(u) FROM User u WHERE TYPE(u) = Administrator AND u.isActive = true")
     long countActiveAdministrators();
 
     /**
@@ -40,34 +40,35 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByAccountId(@Param("accountId") Long accountId);
 
     /**
+     * Count users by primary account ID
+     */
+    @Query("SELECT COUNT(u) FROM User u WHERE u.primaryAccount.id = :accountId")
+    long countByPrimaryAccountId(@Param("accountId") Long accountId);
+
+    /**
      * Find users that a veterinarian has access to
      */
     @Query("SELECT DISTINCT u FROM User u " +
-            "JOIN VetPermission vp ON vp.customer.id = u.id " +
+            "JOIN VetPermission vp ON vp.account.id = u.primaryAccount.id " +
             "WHERE vp.veterinarian.id = :vetId AND vp.isActive = true")
     List<User> findByVeterinarianAccess(@Param("vetId") Long vetId);
 
     /**
      * Find all administrators
      */
-    @Query("SELECT u FROM User u WHERE u.userType = 'ADMINISTRATOR'")
+    @Query("SELECT u FROM User u WHERE TYPE(u) = Administrator")
     List<User> findAdministrators();
 
     /**
      * Find all veterinarians
      */
-    @Query("SELECT u FROM User u WHERE u.userType = 'VETERINARIAN'")
+    @Query("SELECT u FROM User u WHERE TYPE(u) = Veterinarian")
     List<User> findVeterinarians();
 
     /**
      * Find users by active status
      */
     List<User> findByIsActive(Boolean isActive);
-
-    /**
-     * Find users by user type and active status
-     */
-    List<User> findByUserTypeAndIsActive(String userType, Boolean isActive);
 
     /**
      * Check if username exists (excluding specific user ID)
