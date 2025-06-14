@@ -7,18 +7,38 @@ import jakarta.persistence.*;
 import java.sql.Date;
 import java.util.StringJoiner;
 
-
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "note_id"))
 public class Note extends BaseVO {
+
     private Date noteDate;
+
     private String noteSubject;
+
     @Column(name = "note", length = 250)
     private String note;
-    @OneToOne
-    @JoinColumn(name = "customer_id")
+
+    @ManyToOne
+    @JoinColumn(name = "note_author_id", nullable = false)
     private User noteAuthor;
 
+    // CRITICAL: Add account relationship for multi-tenancy
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", nullable = false)
+    private Account account;
+
+    // Constructors
+    public Note() {}
+
+    public Note(Account account, User noteAuthor, String noteSubject, String note) {
+        this.account = account;
+        this.noteAuthor = noteAuthor;
+        this.noteSubject = noteSubject;
+        this.note = note;
+        this.noteDate = new Date(System.currentTimeMillis());
+    }
+
+    // Getters and Setters
     public Date getNoteDate() {
         return noteDate;
     }
@@ -51,13 +71,23 @@ public class Note extends BaseVO {
         this.noteAuthor = noteAuthor;
     }
 
+    public Account getAccount() {
+        return account;
+    }
+
+    public void setAccount(Account account) {
+        this.account = account;
+    }
+
     @Override
     public String toString() {
         return new StringJoiner(", ", Note.class.getSimpleName() + "[", "]")
+                .add("id=" + getId())
                 .add("noteDate=" + noteDate)
                 .add("noteSubject='" + noteSubject + "'")
                 .add("note='" + note + "'")
-                .add("noteAuthor=" + noteAuthor)
+                .add("noteAuthor=" + (noteAuthor != null ? noteAuthor.getUsername() : "null"))
+                .add("account=" + (account != null ? account.getAccountNumber() : "null"))
                 .toString();
     }
 }
