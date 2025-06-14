@@ -1,9 +1,7 @@
 package com.krazykritterranch.rms.controller.user;
 
 import com.krazykritterranch.rms.controller.user.dto.UserCreationDTO;
-import com.krazykritterranch.rms.model.user.Customer;
 import com.krazykritterranch.rms.model.user.User;
-import com.krazykritterranch.rms.repositories.user.CustomerRepository;
 import com.krazykritterranch.rms.service.common.AccountService;
 import com.krazykritterranch.rms.service.user.UserFactory;
 import com.krazykritterranch.rms.service.user.UserService;
@@ -21,11 +19,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import com.krazykritterranch.rms.controller.user.dto.UserCreationDTO;
 import com.krazykritterranch.rms.controller.user.dto.UserResponseDTO;
-import com.krazykritterranch.rms.service.user.UserFactory;
-import com.krazykritterranch.rms.service.common.AccountService;
-import jakarta.validation.Valid;
+
 import java.util.stream.Collectors;
 import com.krazykritterranch.rms.controller.user.dto.UserUpdateDTO;
 

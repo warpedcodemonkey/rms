@@ -2,7 +2,6 @@ package com.krazykritterranch.rms.controller.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.krazykritterranch.rms.controller.user.dto.UserUpdateDTO;
-import com.krazykritterranch.rms.model.user.Customer;
 import com.krazykritterranch.rms.service.user.UserService;
 import com.krazykritterranch.rms.service.security.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
