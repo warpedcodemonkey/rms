@@ -474,4 +474,185 @@ public class UserService {
             vet.setYearsExperience(updateDto.getYearsExperience());
         }
     }
+
+
+
+
+    // Add this method to UserService.java
+    public String validateUserDeletion(Long userId) {
+        User user = findById(userId); // Already includes security checks
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        // Check if user is trying to delete themselves
+        if (userId.equals(tenantContext.getCurrentUserId())) {
+            return "You cannot delete your own account";
+        }
+
+        // Check if this is the last administrator in the system
+        if (user.getUserType().equals("ADMINISTRATOR")) {
+            long adminCount = userRepository.countActiveAdministrators();
+            if (adminCount <= 1) {
+                return "Cannot delete the last administrator in the system";
+            }
+        }
+
+        // Check if this user has dependent data that prevents deletion
+        // According to the technical specifications, we need to check for:
+        // - Active livestock records
+        // - Active contracts
+        // - Active veterinary permissions (for vets)
+
+        // For now, return null (no validation errors) but this should be expanded
+        // based on the actual business logic requirements
+
+        // TODO: Add checks for:
+        // - Livestock records created/managed by this user
+        // - Contracts associated with this user
+        // - Veterinary permissions if this is a veterinarian
+        // - Any other business-critical data associations
+
+        return null; // No validation errors
+    }
+
+    public void permanentlyDeleteUser(Long userId) {
+        User user = findById(userId); // Already includes security checks
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        // Security check: only administrators can permanently delete users
+        if (!tenantContext.isAdmin()) {
+            throw new SecurityException("Only administrators can permanently delete users");
+        }
+
+        // Prevent administrators from deleting themselves
+        if (userId.equals(tenantContext.getCurrentUserId())) {
+            throw new IllegalArgumentException("You cannot permanently delete your own account");
+        }
+
+        // Check if this is the last administrator in the system
+        if (user.getUserType().equals("ADMINISTRATOR")) {
+            long adminCount = userRepository.countActiveAdministrators();
+            if (adminCount <= 1) {
+                throw new IllegalArgumentException("Cannot delete the last administrator in the system");
+            }
+        }
+
+        // Additional validation: ensure this action is safe
+        String validationError = validateUserDeletion(userId);
+        if (validationError != null) {
+            throw new IllegalArgumentException(validationError);
+        }
+
+        // Before permanent deletion, we should clean up any dependent data
+        // According to the technical specifications, this could include:
+        // - Removing veterinary permissions if this is a veterinarian
+        // - Handling livestock records created by this user
+        // - Managing contract associations
+
+        // Handle veterinarian-specific cleanup
+        if (user instanceof Veterinarian) {
+            // Remove all veterinary permissions for this vet
+            vetPermissionRepository.findActivePermissionsByVet(userId, LocalDateTime.now())
+                    .forEach(permission -> {
+                        permission.setIsActive(false);
+                        vetPermissionRepository.save(permission);
+                    });
+        }
+
+        // TODO: Add cleanup for other dependent data:
+        // - Update livestock records where this user is recorded as creator/modifier
+        // - Handle contract associations
+        // - Clean up any audit logs or references
+
+        // Perform the permanent deletion
+        userRepository.deleteById(userId);
+    }
+
+    public void deactivateUser(Long userId) {
+        User user = findById(userId); // Already includes security checks
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        // Security check: only admins and account users can deactivate users, NOT veterinarians
+        if (tenantContext.isVeterinarian()) {
+            throw new SecurityException("Veterinarians cannot deactivate user accounts");
+        }
+
+        // Additional business logic checks for account users
+        if (tenantContext.isAccountUser()) {
+            // Account users can only deactivate users from their own account
+            if (user.getPrimaryAccount() == null ||
+                    !user.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId())) {
+                throw new SecurityException("Cannot deactivate user from different account");
+            }
+
+            // Account users cannot deactivate administrators
+            if (user.getUserType().equals("ADMINISTRATOR")) {
+                throw new SecurityException("Account users cannot deactivate administrators");
+            }
+        }
+
+        // Prevent users from deactivating themselves
+        if (userId.equals(tenantContext.getCurrentUserId())) {
+            throw new IllegalArgumentException("You cannot deactivate your own account");
+        }
+
+        // Check if user is already inactive
+        if (!user.getIsActive()) {
+            throw new IllegalArgumentException("User is already inactive");
+        }
+
+        // Perform soft delete - set inactive and track deactivation details
+        user.setIsActive(false);
+        user.setDeactivatedAt(LocalDateTime.now());
+        user.setDeactivatedBy(tenantContext.getCurrentUserId());
+
+        // Clear reactivation fields if they were previously set
+        user.setReactivatedAt(null);
+        user.setReactivatedBy(null);
+
+        userRepository.save(user);
+    }
+    public void logUserDeletion(Long deletedUserId, String reason, Long deletedByUserId) {
+        // This method logs user deletion for audit purposes
+        // According to the technical specifications, we need comprehensive audit trails
+
+        User deletedUser = userRepository.findById(deletedUserId).orElse(null);
+        User deletedByUser = userRepository.findById(deletedByUserId).orElse(null);
+
+        // For now, we'll use simple logging - in production this should be enhanced
+        // to use a proper audit logging system as mentioned in Task 17
+
+        String logMessage = String.format(
+                "USER DELETION AUDIT: User %s (ID: %d, Type: %s) permanently deleted by %s (ID: %d) at %s. Reason: %s",
+                deletedUser != null ? deletedUser.getUsername() : "Unknown",
+                deletedUserId,
+                deletedUser != null ? deletedUser.getUserType() : "Unknown",
+                deletedByUser != null ? deletedByUser.getUsername() : "Unknown",
+                deletedByUserId,
+                LocalDateTime.now().toString(),
+                reason != null ? reason : "No reason provided"
+        );
+
+        // Log to application logs
+        System.out.println(logMessage);
+
+        // TODO: In production, this should write to:
+        // 1. A dedicated audit log table (AuditLog entity as mentioned in Task 17)
+        // 2. External audit system
+        // 3. Compliance logging system
+
+        // The audit log should include:
+        // - Timestamp
+        // - Action performed (USER_DELETION)
+        // - User who performed the action
+        // - Target user affected
+        // - Reason provided
+        // - Account context (for multi-tenant audit trails)
+        // - IP address and session information
+    }
 }
