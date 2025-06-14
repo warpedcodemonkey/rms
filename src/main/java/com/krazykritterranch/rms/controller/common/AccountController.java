@@ -6,6 +6,7 @@ import com.krazykritterranch.rms.model.user.VetPermissionType;
 import com.krazykritterranch.rms.model.user.Veterinarian;
 import com.krazykritterranch.rms.service.common.AccountService;
 import com.krazykritterranch.rms.service.security.TenantContext;
+import com.krazykritterranch.rms.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -25,6 +28,9 @@ public class AccountController {
 
     @Autowired
     private TenantContext tenantContext;
+
+    @Autowired
+    private UserService userService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -130,6 +136,44 @@ public class AccountController {
     public ResponseEntity<List<Account>> getVetAccessibleAccounts() {
         List<Account> accounts = accountService.getAccountsForVet(tenantContext.getCurrentUserId());
         return ResponseEntity.ok(accounts);
+    }
+
+    @PutMapping("/{id}/user-limit")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    public ResponseEntity<?> setAccountUserLimit(@PathVariable Long id, @RequestParam Integer maxUsers) {
+        try {
+            if (maxUsers < 1 || maxUsers > 100) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "User limit must be between 1 and 100"));
+            }
+
+            return accountService.findById(id)
+                    .map(account -> {
+                        account.setMaxUsers(maxUsers);
+                        accountService.save(account);
+                        return ResponseEntity.ok(Collections.singletonMap("message", "User limit updated successfully"));
+                    })
+                    .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Collections.singletonMap("error", "Account not found")));
+
+        } catch (Exception e) {
+            System.out.println("Error setting user limit: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to update user limit"));
+        }
+    }
+
+    @GetMapping("/{id}/user-stats")
+    @PreAuthorize("@securityService.canAccessAccount(#id)")
+    public ResponseEntity<?> getAccountUserStats(@PathVariable Long id) {
+        try {
+            Map<String, Object> stats = userService.getAccountUserStats(id);
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            System.out.println("Error getting user stats: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to get user statistics"));
+        }
     }
 
     // Inner class for vet access requests

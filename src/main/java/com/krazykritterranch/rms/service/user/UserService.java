@@ -10,9 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.krazykritterranch.rms.repositories.common.AccountRepository;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @Transactional
@@ -29,6 +29,9 @@ public class UserService {
 
     @Autowired
     private TenantContext tenantContext;
+
+    @Autowired
+    private AccountRepository accountRepository;
 
     // Public methods (no tenant restriction) - updated to use eager fetching
     public User findByUsername(String username) {
@@ -133,9 +136,12 @@ public class UserService {
 
     @SecurityAnnotations.RequireAccountAccess
     public boolean canAddUserToAccount(Long accountId) {
-        long currentUserCount = userRepository.countByAccountId(accountId);
-        // Add your business logic for user limits per account
-        return currentUserCount < 100; // Example limit
+        return accountRepository.findById(accountId)
+                .map(account -> {
+                    long currentUserCount = userRepository.countByAccountId(accountId);
+                    return currentUserCount < account.getMaxUsers();
+                })
+                .orElse(false);
     }
 
     public User updateUser(Long id, User updatedUser) {
@@ -224,4 +230,19 @@ public class UserService {
         // TODO: Implement proper vet permission checking
         return true;
     }
+
+    public Map<String, Object> getAccountUserStats(Long accountId) {
+        return accountRepository.findById(accountId)
+                .map(account -> {
+                    long currentUserCount = userRepository.countByAccountId(accountId);
+                    Map<String, Object> stats = new HashMap<>();
+                    stats.put("currentUsers", currentUserCount);
+                    stats.put("maxUsers", account.getMaxUsers());
+                    stats.put("canAddUser", currentUserCount < account.getMaxUsers());
+                    return stats;
+                })
+                .orElse(Collections.emptyMap());
+    }
+
+
 }

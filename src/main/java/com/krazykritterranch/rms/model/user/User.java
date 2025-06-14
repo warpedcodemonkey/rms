@@ -9,6 +9,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
+
 @Entity
 @Table(name = "users")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
@@ -26,6 +31,7 @@ public abstract class User implements UserDetails {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore  // Never serialize passwords
     private String password;
 
     @Column(name = "first_name", nullable = false)
@@ -52,6 +58,7 @@ public abstract class User implements UserDetails {
     // For Account Users - which account they belong to (null for admin/vets)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "primary_account_id")
+    @JsonBackReference("account-users")  // This prevents infinite recursion
     private Account primaryAccount;
 
     // Many-to-Many relationship with Role
@@ -61,6 +68,7 @@ public abstract class User implements UserDetails {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
+    @JsonIgnore  // Don't serialize roles in user responses for security
     private Set<Role> roles = new HashSet<>();
 
     // Many-to-Many relationship with Permission for custom permissions
@@ -70,6 +78,7 @@ public abstract class User implements UserDetails {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
+    @JsonIgnore  // Don't serialize permissions in user responses for security
     private Set<Permission> customPermissions = new HashSet<>();
 
     // Constructors

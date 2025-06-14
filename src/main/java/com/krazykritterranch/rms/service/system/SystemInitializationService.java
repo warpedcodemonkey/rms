@@ -1,9 +1,14 @@
 package com.krazykritterranch.rms.service.system;
 
+import com.fasterxml.jackson.databind.util.AccessPattern;
+import com.krazykritterranch.rms.model.common.Account;
+import com.krazykritterranch.rms.model.common.AccountStatus;
 import com.krazykritterranch.rms.model.user.*;
+import com.krazykritterranch.rms.repositories.common.AccountRepository;
 import com.krazykritterranch.rms.repositories.user.PermissionRepository;
 import com.krazykritterranch.rms.repositories.user.RoleRepository;
 import com.krazykritterranch.rms.repositories.user.UserRepository;
+import com.krazykritterranch.rms.service.common.AccountService;
 import com.krazykritterranch.rms.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -33,23 +38,55 @@ public class SystemInitializationService implements CommandLineRunner {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @Autowired
+    private AccountService accountService;
+
     @Override
     public void run(String... args) throws Exception {
         initializePermissions();
         initializeRoles();
-        createTestUser(); // Add this line
+        createTestAccount();      // Create account first
+        createTestUser();         // Then create user with account
         createAdminTestUser();
+    }
+
+
+
+
+
+    private void createTestAccount() {
+        // Check if test account already exists
+        if (accountRepository.findByFarmName("Test Ranch").isEmpty()) {
+            Account testAccount = new Account();
+            testAccount.setFarmName("Test Ranch");
+            testAccount.setStatus(AccountStatus.ACTIVE);
+            testAccount.setSignupDate(new java.sql.Date(System.currentTimeMillis()));
+            testAccount.setMembershipStart(new java.sql.Date(System.currentTimeMillis()));
+            // No end date for now
+
+            accountRepository.save(testAccount);
+            System.out.println("Created test account: Test Ranch");
+        }
     }
 
     private void createTestUser() {
         // Check if test user already exists
         if (userRepository.findByUsername("testuser").isEmpty()) {
-            // Create a Customer instance instead of anonymous User
-            Customer testUser = new Customer("testuser", "test@example.com", "password123", "John", "Doe");
+            // Get the test account
+            Account testAccount = accountRepository.findByFarmName("Test Ranch")
+                    .orElseThrow(() -> new RuntimeException("Test account not found"));
 
-            // Encode the password
+            // Create a Customer instance
+            Customer testUser = new Customer("testuser", "test@example.com", "password123", "John", "Doe");
             testUser.setPassword(passwordEncoder.encode("password123"));
             testUser.setIsActive(true);
+            testUser.setPrimaryAccount(testAccount);  // Set the primary account
+            testUser.setCustomerNumber("CUST001");
+            testUser.setEmergencyContact("Jane Doe");
+            testUser.setEmergencyPhone("555-0124");
 
             // Add customer role
             roleRepository.findByName("CUSTOMER").ifPresent(role -> {
@@ -57,7 +94,7 @@ public class SystemInitializationService implements CommandLineRunner {
             });
 
             userRepository.save(testUser);
-            System.out.println("Created test user: testuser / password123");
+            System.out.println("Created test user: testuser / password123 with account");
         }
     }
 
@@ -66,12 +103,11 @@ public class SystemInitializationService implements CommandLineRunner {
         if (userRepository.findByUsername("admin").isEmpty()) {
             // Create an Administrator instance
             Administrator testAdmin = new Administrator("admin", "admin@example.com", "admin123", "Admin", "User");
-
-            // Encode the password
             testAdmin.setPassword(passwordEncoder.encode("admin123"));
             testAdmin.setIsActive(true);
             testAdmin.setDepartment("IT");
             testAdmin.setAccessLevel(10);
+            // NOTE: Administrators don't have a primaryAccount - they are system users
 
             // Add admin role
             roleRepository.findByName("ADMINISTRATOR").ifPresent(role -> {

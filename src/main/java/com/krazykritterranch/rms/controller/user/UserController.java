@@ -1,10 +1,14 @@
 package com.krazykritterranch.rms.controller.user;
 
+import com.krazykritterranch.rms.controller.user.dto.UserCreationDTO;
 import com.krazykritterranch.rms.model.user.User;
+import com.krazykritterranch.rms.service.common.AccountService;
+import com.krazykritterranch.rms.service.user.UserFactory;
 import com.krazykritterranch.rms.service.user.UserService;
 import com.krazykritterranch.rms.service.security.TenantContext;
 import com.krazykritterranch.rms.controller.user.dto.LoginRequest;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +19,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.krazykritterranch.rms.controller.user.dto.UserCreationDTO;
+import com.krazykritterranch.rms.controller.user.dto.UserResponseDTO;
+import com.krazykritterranch.rms.service.user.UserFactory;
+import com.krazykritterranch.rms.service.common.AccountService;
+import jakarta.validation.Valid;
+import java.util.stream.Collectors;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,12 +44,20 @@ public class UserController {
     @Autowired
     private AuthenticationManager authenticationManager;
 
+    @Autowired
+    private UserFactory userFactory;
+
+    @Autowired
+    private AccountService accountService;
+
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
+    public ResponseEntity<List<UserResponseDTO>> getAllUsers() {
         try {
-            // The UserService.getAllUsers() now properly handles tenant filtering
             List<User> users = userService.getAllUsers();
-            return ResponseEntity.ok(users);
+            List<UserResponseDTO> userDTOs = users.stream()
+                    .map(UserResponseDTO::fromUser)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(userDTOs);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
@@ -77,17 +95,70 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
+    public ResponseEntity<?> createUser(@Valid @RequestBody UserCreationDTO userDto) {
         try {
+            // Restrict user types based on current user context
+            if (tenantContext.isAccountUser()) {
+                // Account users can only create CUSTOMER users
+                if (!"CUSTOMER".equals(userDto.getUserType())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Collections.singletonMap("error", "Account users can only create customer users"));
+                }
+            }
+
+            // Check if user already exists
+            if (userService.existsByUsername(userDto.getUsername())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Collections.singletonMap("error", "Username already exists"));
+            }
+
+            if (userService.existsByEmail(userDto.getEmail())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Collections.singletonMap("error", "Email already exists"));
+            }
+
+            // Create user based on type
+            User user = userFactory.createUser(userDto);
+
+            // Handle account assignment based on user type and context
+            if ("CUSTOMER".equals(userDto.getUserType())) {
+                if (tenantContext.isAdmin()) {
+                    // Admin creating customer - no account assignment needed for now
+                    // Customer will be assigned to account when account is created
+                } else if (tenantContext.isAccountUser()) {
+                    // Account user creating another user in their account
+                    Long accountId = tenantContext.getCurrentAccountId();
+
+                    // Check if account can add more users
+                    if (!userService.canAddUserToAccount(accountId)) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(Collections.singletonMap("error", "Account has reached maximum user limit"));
+                    }
+
+                    // Set the account
+                    accountService.findById(accountId).ifPresent(user::setPrimaryAccount);
+                }
+            }
+            // Administrators and Veterinarians are system users (no primary account)
+
             User savedUser = userService.saveUser(user);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
+            UserResponseDTO responseDTO = UserResponseDTO.fromUser(savedUser);
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
+
         } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Collections.singletonMap("error", "Access denied"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", e.getMessage()));
         } catch (Exception e) {
             System.out.println("Error creating user: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to create user"));
         }
     }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
@@ -237,4 +308,30 @@ public class UserController {
                     .body(Collections.singletonMap("error", "Internal server error"));
         }
     }
+
+    @PutMapping("/account/{accountId}/user-limit")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    public ResponseEntity<?> setAccountUserLimit(@PathVariable Long accountId, @RequestParam Integer maxUsers) {
+        try {
+            if (maxUsers < 1 || maxUsers > 100) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "User limit must be between 1 and 100"));
+            }
+
+            return accountService.findById(accountId)
+                    .map(account -> {
+                        account.setMaxUsers(maxUsers);
+                        accountService.save(account);
+                        return ResponseEntity.ok(Collections.singletonMap("message", "User limit updated successfully"));
+                    })
+                    .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Collections.singletonMap("error", "Account not found")));
+
+        } catch (Exception e) {
+            System.out.println("Error setting user limit: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to update user limit"));
+        }
+    }
+
 }

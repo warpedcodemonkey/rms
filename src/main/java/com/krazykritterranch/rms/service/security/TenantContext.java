@@ -36,7 +36,8 @@ public class TenantContext {
     }
 
     public boolean isAdmin() {
-        return "ADMIN".equals(userType) || "SUPER_ADMIN".equals(userType);
+        // Fixed to match the actual role name used in your system
+        return "ADMINISTRATOR".equals(userType) || "SUPER_ADMIN".equals(userType);
     }
 
     public boolean isVeterinarian() {
