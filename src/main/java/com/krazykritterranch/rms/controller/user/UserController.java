@@ -1,6 +1,7 @@
 package com.krazykritterranch.rms.controller.user;
 
 import com.krazykritterranch.rms.controller.user.dto.UserCreationDTO;
+import com.krazykritterranch.rms.model.user.Customer;
 import com.krazykritterranch.rms.model.user.User;
 import com.krazykritterranch.rms.repositories.user.CustomerRepository;
 import com.krazykritterranch.rms.service.common.AccountService;
@@ -26,6 +27,9 @@ import com.krazykritterranch.rms.service.user.UserFactory;
 import com.krazykritterranch.rms.service.common.AccountService;
 import jakarta.validation.Valid;
 import java.util.stream.Collectors;
+import com.krazykritterranch.rms.controller.user.dto.UserUpdateDTO;
+
+import com.krazykritterranch.rms.controller.user.dto.UserDeleteRequest;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -176,48 +180,344 @@ public class UserController {
 
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateDTO userUpdateDto) {
         try {
-            User updatedUser = userService.updateUser(id, user);
-            return ResponseEntity.ok(updatedUser);
+            // Validate that the user can be updated by the current user
+            User existingUser = userService.findById(id);
+            if (existingUser == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            // Security check: ensure current user can update this user
+            if (!canUserBeUpdatedByCurrentUser(existingUser)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Collections.singletonMap("error", "Access denied: You cannot update this user"));
+            }
+
+            // Check for username conflicts (only if username is being changed)
+            if (userUpdateDto.getUsername() != null &&
+                    !userUpdateDto.getUsername().equals(existingUser.getUsername()) &&
+                    userService.existsByUsername(userUpdateDto.getUsername())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Collections.singletonMap("error", "Username already exists"));
+            }
+
+            // Check for email conflicts (only if email is being changed)
+            if (userUpdateDto.getEmail() != null &&
+                    !userUpdateDto.getEmail().equals(existingUser.getEmail()) &&
+                    userService.existsByEmail(userUpdateDto.getEmail())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Collections.singletonMap("error", "Email already exists"));
+            }
+
+            // Check for customer number conflicts (only for customers and if being changed)
+            if ("CUSTOMER".equals(existingUser.getUserType()) &&
+                    userUpdateDto.getCustomerNumber() != null &&
+                    userUpdateDto.getCustomerNumber().trim().length() > 0) {
+
+                Customer customer = (Customer) existingUser;
+                if (!userUpdateDto.getCustomerNumber().trim().equals(customer.getCustomerNumber()) &&
+                        customerRepository.existsByCustomerNumber(userUpdateDto.getCustomerNumber().trim())) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(Collections.singletonMap("error", "Customer number already exists"));
+                }
+            }
+
+            // Update the user
+            User updatedUser = userService.updateUserWithDto(id, userUpdateDto);
+            UserResponseDTO responseDTO = UserResponseDTO.fromUser(updatedUser);
+
+            return ResponseEntity.ok(responseDTO);
+
         } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Collections.singletonMap("error", "Access denied"));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", e.getMessage()));
         } catch (Exception e) {
             System.out.println("Error updating user: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to update user"));
         }
     }
 
+    private boolean canUserBeUpdatedByCurrentUser(User targetUser) {
+        if (tenantContext.isAdmin()) {
+            return true; // Admins can update any user
+        }
+
+        if (tenantContext.isAccountUser()) {
+            // Account users can update users in their own account
+            if (targetUser.getPrimaryAccount() != null &&
+                    targetUser.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId())) {
+                return true;
+            }
+
+            // Users can always update their own profile
+            if (targetUser.getId().equals(tenantContext.getCurrentUserId())) {
+                return true;
+            }
+        }
+
+        if (tenantContext.isVeterinarian()) {
+            // Vets can update users in accounts they have access to
+            if (targetUser.getPrimaryAccount() != null) {
+                // This would need to check vet permissions - placeholder for now
+                return userService.hasVetPermissionForAccount(targetUser.getPrimaryAccount().getId());
+            }
+
+            // Vets can update their own profile
+            if (targetUser.getId().equals(tenantContext.getCurrentUserId())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deactivateUser(@PathVariable Long id) {
+    public ResponseEntity<?> deleteUser(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean permanent) {
         try {
-            userService.deactivateUser(id);
-            return ResponseEntity.noContent().build();
+            // Get the user to be deleted
+            User userToDelete = userService.findById(id);
+            if (userToDelete == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            // Security check: ensure current user can delete this user
+            if (!canUserBeDeletedByCurrentUser(userToDelete)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Collections.singletonMap("error", "Access denied: You cannot delete this user"));
+            }
+
+            // Prevent users from deleting themselves
+            if (userToDelete.getId().equals(tenantContext.getCurrentUserId())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "You cannot delete your own account"));
+            }
+
+            // Check if user has associated data that prevents deletion
+            String validationError = userService.validateUserDeletion(id);
+            if (validationError != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Collections.singletonMap("error", validationError));
+            }
+
+            if (permanent) {
+                // Hard delete - only allowed for admins
+                if (!tenantContext.isAdmin()) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Collections.singletonMap("error", "Only administrators can permanently delete users"));
+                }
+                userService.permanentlyDeleteUser(id);
+            } else {
+                // Soft delete (deactivate)
+                userService.deactivateUser(id);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", permanent ? "User permanently deleted" : "User deactivated");
+            response.put("permanent", permanent);
+
+            return ResponseEntity.ok(response);
+
         } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Collections.singletonMap("error", "Access denied"));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", e.getMessage()));
         } catch (Exception e) {
-            System.out.println("Error deactivating user: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            System.out.println("Error deleting user: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to delete user"));
+        }
+    }
+
+    @DeleteMapping("/{id}/permanent")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> permanentlyDeleteUser(@PathVariable Long id, @Valid @RequestBody UserDeleteRequest deleteRequest) {
+        try {
+            // Get the user to be deleted
+            User userToDelete = userService.findById(id);
+            if (userToDelete == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            // Verify confirmation
+            if (!deleteRequest.isConfirmed()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "Deletion must be confirmed"));
+            }
+
+            // Verify reason is provided for permanent deletion
+            if (deleteRequest.getReason() == null || deleteRequest.getReason().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "Reason is required for permanent deletion"));
+            }
+
+            // Prevent admin from deleting themselves
+            if (userToDelete.getId().equals(tenantContext.getCurrentUserId())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "You cannot delete your own account"));
+            }
+
+            // Check if user has associated data that prevents deletion
+            String validationError = userService.validateUserDeletion(id);
+            if (validationError != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Collections.singletonMap("error", validationError));
+            }
+
+            // Log the deletion for audit purposes
+            userService.logUserDeletion(id, deleteRequest.getReason(), tenantContext.getCurrentUserId());
+
+            // Perform permanent deletion
+            userService.permanentlyDeleteUser(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "User permanently deleted");
+            response.put("deletedUserId", id);
+            response.put("reason", deleteRequest.getReason());
+
+            return ResponseEntity.ok(response);
+
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Collections.singletonMap("error", "Access denied"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", e.getMessage()));
+        } catch (Exception e) {
+            System.out.println("Error permanently deleting user: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to permanently delete user"));
         }
     }
 
     @PutMapping("/{id}/reactivate")
-    public ResponseEntity<Void> reactivateUser(@PathVariable Long id) {
+    public ResponseEntity<?> reactivateUser(@PathVariable Long id) {
         try {
+            // Get the user to be reactivated
+            User userToReactivate = userService.findById(id);
+            if (userToReactivate == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            // Security check: ensure current user can reactivate this user
+            if (!canUserBeReactivatedByCurrentUser(userToReactivate)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Collections.singletonMap("error", "Access denied: You cannot reactivate this user"));
+            }
+
+            // Check if user is already active
+            if (userToReactivate.getIsActive()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "User is already active"));
+            }
+
+            // Check account limits if reactivating account user
+            if ("CUSTOMER".equals(userToReactivate.getUserType()) &&
+                    userToReactivate.getPrimaryAccount() != null) {
+                if (!userService.canAddUserToAccount(userToReactivate.getPrimaryAccount().getId())) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(Collections.singletonMap("error", "Account has reached maximum user limit"));
+                }
+            }
+
             userService.reactivateUser(id);
-            return ResponseEntity.ok().build();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "User reactivated successfully");
+            response.put("userId", id);
+
+            return ResponseEntity.ok(response);
+
         } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Collections.singletonMap("error", "Access denied"));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", e.getMessage()));
         } catch (Exception e) {
             System.out.println("Error reactivating user: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to reactivate user"));
         }
+    }
+
+    @GetMapping("/{id}/deletion-check")
+    public ResponseEntity<?> checkUserDeletion(@PathVariable Long id) {
+        try {
+            User user = userService.findById(id);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            // Security check
+            if (!canUserBeDeletedByCurrentUser(user)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Collections.singletonMap("error", "Access denied"));
+            }
+
+            Map<String, Object> deletionInfo = userService.getUserDeletionInfo(id);
+            return ResponseEntity.ok(deletionInfo);
+
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Collections.singletonMap("error", "Access denied"));
+        } catch (Exception e) {
+            System.out.println("Error checking user deletion: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed to check user deletion status"));
+        }
+    }
+
+    // Helper methods for UserController
+    private boolean canUserBeDeletedByCurrentUser(User targetUser) {
+        if (tenantContext.isAdmin()) {
+            return true; // Admins can delete any user (except themselves)
+        }
+
+        if (tenantContext.isAccountUser()) {
+            // Account users can delete users in their own account (but not themselves)
+            if (targetUser.getPrimaryAccount() != null &&
+                    targetUser.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId()) &&
+                    !targetUser.getId().equals(tenantContext.getCurrentUserId())) {
+                return true;
+            }
+        }
+
+        // Vets cannot delete users
+        return false;
+    }
+
+    private boolean canUserBeReactivatedByCurrentUser(User targetUser) {
+        if (tenantContext.isAdmin()) {
+            return true; // Admins can reactivate any user
+        }
+
+        if (tenantContext.isAccountUser()) {
+            // Account users can reactivate users in their own account
+            if (targetUser.getPrimaryAccount() != null &&
+                    targetUser.getPrimaryAccount().getId().equals(tenantContext.getCurrentAccountId())) {
+                return true;
+            }
+        }
+
+        // Vets cannot reactivate users
+        return false;
     }
 
     // Role management
