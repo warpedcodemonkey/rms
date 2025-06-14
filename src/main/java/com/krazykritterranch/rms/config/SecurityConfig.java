@@ -40,7 +40,7 @@ public class SecurityConfig {
         http
                 .securityMatcher("/api/**")
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.disable())  //TODO: This needs to be fixed when we are ready to go beyond development.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.POST, "/api/user/login").permitAll()

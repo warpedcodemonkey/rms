@@ -1,7 +1,9 @@
 package com.krazykritterranch.rms.model.user;
 
+import com.krazykritterranch.rms.model.common.Account;
 import jakarta.persistence.*;
-import java.util.*;
+
+import java.time.LocalDateTime;
 
 @Entity
 @DiscriminatorValue("CUSTOMER")
@@ -10,33 +12,46 @@ public class Customer extends User {
     @Column(name = "customer_number", unique = true)
     private String customerNumber;
 
-    @Column(name = "emergency_contact")
-    private String emergencyContact;
+    @Column(name = "subscription_start_date")
+    private LocalDateTime subscriptionStartDate;
 
-    @Column(name = "emergency_phone")
-    private String emergencyPhone;
+    @Column(name = "subscription_tier")
+    private String subscriptionTier;
 
-    // Many-to-Many relationship for vet permissions
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "customer_vet_permissions",
-            joinColumns = @JoinColumn(name = "customer_id"),
-            inverseJoinColumns = @JoinColumn(name = "vet_id")
-    )
-    private Set<Veterinarian> authorizedVets = new HashSet<>();
+    @Column(name = "billing_email")
+    private String billingEmail;
 
-    // Constructors
+    @Column(name = "company_name")
+    private String companyName;
+
+    @Column(name = "tax_id")
+    private String taxId;
+
     public Customer() {
         super();
+        this.customerNumber = generateCustomerNumber();
     }
 
-    public Customer(String username, String email, String password, String firstName, String lastName) {
-        super(username, email, password, firstName, lastName);
-        this.customerNumber = generateCustomerNumber(); // This generates a unique number
+    public Customer(String email, String password, String firstName, String lastName, Account account) {
+        super();
+        setUsername(email); // Username should be email for customers
+        setEmail(email);
+        setPassword(password);
+        setFirstName(firstName);
+        setLastName(lastName);
+        setPrimaryAccount(account); // Customer MUST have an account
+        this.customerNumber = generateCustomerNumber();
+        this.subscriptionStartDate = LocalDateTime.now();
+        this.billingEmail = email;
     }
 
     @Override
-    public String getUserType() {
+    public UserLevel getUserLevel() {
+        return UserLevel.CUSTOMER;
+    }
+
+    @Override
+    public String getUserTypeString() {
         return "CUSTOMER";
     }
 
@@ -44,23 +59,34 @@ public class Customer extends User {
         return "CUST-" + System.currentTimeMillis();
     }
 
-    public boolean hasAuthorizedVet(Long vetId) {
-        return authorizedVets.stream().anyMatch(vet -> vet.getId().equals(vetId));
+    // Customer-specific methods
+    public boolean canCreateAccountUsers() {
+        Account account = getPrimaryAccount();
+        return account != null && account.getUserCount() < account.getMaxUsers();
     }
 
-    // Getters and Setters
+    public int getRemainingUserSlots() {
+        Account account = getPrimaryAccount();
+        if (account == null) return 0;
+        return account.getMaxUsers() - account.getUserCount();
+    }
+
+    // Customer-specific fields
     public String getCustomerNumber() { return customerNumber; }
-    public void setCustomerNumber(String customerNumber) {
-        // Convert empty strings to null to avoid unique constraint issues
-        this.customerNumber = (customerNumber != null && customerNumber.trim().isEmpty()) ? null : customerNumber;
-    }
+    public void setCustomerNumber(String customerNumber) { this.customerNumber = customerNumber; }
 
-    public String getEmergencyContact() { return emergencyContact; }
-    public void setEmergencyContact(String emergencyContact) { this.emergencyContact = emergencyContact; }
+    public LocalDateTime getSubscriptionStartDate() { return subscriptionStartDate; }
+    public void setSubscriptionStartDate(LocalDateTime subscriptionStartDate) { this.subscriptionStartDate = subscriptionStartDate; }
 
-    public String getEmergencyPhone() { return emergencyPhone; }
-    public void setEmergencyPhone(String emergencyPhone) { this.emergencyPhone = emergencyPhone; }
+    public String getSubscriptionTier() { return subscriptionTier; }
+    public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
 
-    public Set<Veterinarian> getAuthorizedVets() { return authorizedVets; }
-    public void setAuthorizedVets(Set<Veterinarian> authorizedVets) { this.authorizedVets = authorizedVets; }
+    public String getBillingEmail() { return billingEmail; }
+    public void setBillingEmail(String billingEmail) { this.billingEmail = billingEmail; }
+
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+
+    public String getTaxId() { return taxId; }
+    public void setTaxId(String taxId) { this.taxId = taxId; }
 }
