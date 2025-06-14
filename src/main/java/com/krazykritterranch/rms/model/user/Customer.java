@@ -32,7 +32,7 @@ public class Customer extends User {
 
     public Customer(String username, String email, String password, String firstName, String lastName) {
         super(username, email, password, firstName, lastName);
-        this.customerNumber = generateCustomerNumber();
+        this.customerNumber = generateCustomerNumber(); // This generates a unique number
     }
 
     @Override
@@ -50,7 +50,10 @@ public class Customer extends User {
 
     // Getters and Setters
     public String getCustomerNumber() { return customerNumber; }
-    public void setCustomerNumber(String customerNumber) { this.customerNumber = customerNumber; }
+    public void setCustomerNumber(String customerNumber) {
+        // Convert empty strings to null to avoid unique constraint issues
+        this.customerNumber = (customerNumber != null && customerNumber.trim().isEmpty()) ? null : customerNumber;
+    }
 
     public String getEmergencyContact() { return emergencyContact; }
     public void setEmergencyContact(String emergencyContact) { this.emergencyContact = emergencyContact; }

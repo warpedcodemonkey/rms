@@ -19,7 +19,12 @@ public class UserFactory {
                         dto.getFirstName(),
                         dto.getLastName()
                 );
-                customer.setCustomerNumber(dto.getCustomerNumber());
+                // Only set customer number if it's provided and not empty
+                if (dto.getCustomerNumber() != null && !dto.getCustomerNumber().trim().isEmpty()) {
+                    customer.setCustomerNumber(dto.getCustomerNumber().trim());
+                }
+                // Otherwise, keep the auto-generated customer number from constructor
+
                 customer.setEmergencyContact(dto.getEmergencyContact());
                 customer.setEmergencyPhone(dto.getEmergencyPhone());
                 user = customer;

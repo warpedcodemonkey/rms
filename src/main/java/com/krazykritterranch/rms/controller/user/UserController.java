@@ -2,6 +2,7 @@ package com.krazykritterranch.rms.controller.user;
 
 import com.krazykritterranch.rms.controller.user.dto.UserCreationDTO;
 import com.krazykritterranch.rms.model.user.User;
+import com.krazykritterranch.rms.repositories.user.CustomerRepository;
 import com.krazykritterranch.rms.service.common.AccountService;
 import com.krazykritterranch.rms.service.user.UserFactory;
 import com.krazykritterranch.rms.service.user.UserService;
@@ -49,6 +50,9 @@ public class UserController {
 
     @Autowired
     private AccountService accountService;
+
+    @Autowired
+    private CustomerRepository customerRepository;
 
     @GetMapping
     public ResponseEntity<List<UserResponseDTO>> getAllUsers() {
@@ -115,6 +119,17 @@ public class UserController {
             if (userService.existsByEmail(userDto.getEmail())) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(Collections.singletonMap("error", "Email already exists"));
+            }
+
+            if ("CUSTOMER".equals(userDto.getUserType()) &&
+                    userDto.getCustomerNumber() != null &&
+                    !userDto.getCustomerNumber().trim().isEmpty()) {
+
+                // Check if customer number already exists
+                if (customerRepository.existsByCustomerNumber(userDto.getCustomerNumber().trim())) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(Collections.singletonMap("error", "Customer number already exists"));
+                }
             }
 
             // Create user based on type
