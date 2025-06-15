@@ -167,6 +167,20 @@ public class Role {
     public Set<User> getUsers() { return users; }
     public void setUsers(Set<User> users) { this.users = users; }
 
+    /**
+     * Check if this role has a specific permission by name.
+     * @param permissionName the name of the permission to check
+     * @return true if this role contains the specified permission
+     */
+    public boolean hasPermission(String permissionName) {
+        if (permissionName == null || permissions == null) {
+            return false;
+        }
+
+        return permissions.stream()
+                .anyMatch(permission -> permissionName.equals(permission.getName()));
+    }
+
     // toString, equals, and hashCode
     @Override
     public String toString() {

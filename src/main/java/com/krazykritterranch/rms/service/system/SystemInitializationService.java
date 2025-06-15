@@ -74,80 +74,80 @@ public class SystemInitializationService implements CommandLineRunner {
 
     private void createTestUser() {
         // Check if test user already exists
-        if (userRepository.findByUsername("testuser").isEmpty()) {
-            // Get the test account
-            Account testAccount = accountRepository.findByFarmName("Test Ranch")
-                    .orElseThrow(() -> new RuntimeException("Test account not found"));
-
-            // Create a Customer instance
-            Customer testUser = new Customer("testuser", "test@example.com", "password123", "John", "Doe");
-            testUser.setPassword(passwordEncoder.encode("password123"));
-            testUser.setIsActive(true);
-            testUser.setPrimaryAccount(testAccount);  // Set the primary account
-            testUser.setCustomerNumber("CUST001");
-            testUser.setEmergencyContact("Jane Doe");
-            testUser.setEmergencyPhone("555-0124");
-
-            // Add customer role
-            roleRepository.findByName("CUSTOMER").ifPresent(role -> {
-                testUser.getRoles().add(role);
-            });
-
-            userRepository.save(testUser);
-            System.out.println("Created test user: testuser / password123 with account");
-        }
+//        if (userRepository.findByUsername("testuser").isEmpty()) {
+//            // Get the test account
+//            Account testAccount = accountRepository.findByFarmName("Test Ranch")
+//                    .orElseThrow(() -> new RuntimeException("Test account not found"));
+//
+//            // Create a Customer instance
+//            Customer testUser = new Customer("testuser", "test@example.com", "password123", "John", "Doe");
+//            testUser.setPassword(passwordEncoder.encode("password123"));
+//            testUser.setIsActive(true);
+//            testUser.setPrimaryAccount(testAccount);  // Set the primary account
+//            testUser.setCustomerNumber("CUST001");
+//            testUser.setEmergencyContact("Jane Doe");
+//            testUser.setEmergencyPhone("555-0124");
+//
+//            // Add customer role
+//            roleRepository.findByName("CUSTOMER").ifPresent(role -> {
+//                testUser.getRoles().add(role);
+//            });
+//
+//            userRepository.save(testUser);
+//            System.out.println("Created test user: testuser / password123 with account");
+//        }
     }
 
     private void createAdminTestUser() {
         // Check if test admin user already exists
-        if (userRepository.findByUsername("admin").isEmpty()) {
-            // Create an Administrator instance
-            Administrator testAdmin = new Administrator("admin", "admin@example.com", "admin123", "Admin", "User");
-            testAdmin.setPassword(passwordEncoder.encode("admin123"));
-            testAdmin.setIsActive(true);
-            testAdmin.setDepartment("IT");
-            testAdmin.setAccessLevel(10);
-            // NOTE: Administrators don't have a primaryAccount - they are system users
-
-            // Add admin role
-            roleRepository.findByName("ADMINISTRATOR").ifPresent(role -> {
-                testAdmin.getRoles().add(role);
-            });
-
-            userRepository.save(testAdmin);
-            System.out.println("Created test admin: admin / admin123");
-        }
+//        if (userRepository.findByUsername("admin").isEmpty()) {
+//            // Create an Administrator instance
+//            Administrator testAdmin = new Administrator("admin", "admin@example.com", "admin123", "Admin", "User");
+//            testAdmin.setPassword(passwordEncoder.encode("admin123"));
+//            testAdmin.setIsActive(true);
+//            testAdmin.setDepartment("IT");
+//            testAdmin.setAccessLevel(10);
+//            // NOTE: Administrators don't have a primaryAccount - they are system users
+//
+//            // Add admin role
+//            roleRepository.findByName("ADMINISTRATOR").ifPresent(role -> {
+//                testAdmin.getRoles().add(role);
+//            });
+//
+//            userRepository.save(testAdmin);
+//            System.out.println("Created test admin: admin / admin123");
+//        }
     }
 
     private void initializePermissions() {
-        for (SystemPermissions sysPerm : SystemPermissions.values()) {
-            Optional<Permission> existing = permissionRepository.findByName(sysPerm.getName());
-            if (existing.isEmpty()) {
-                Permission permission = new Permission(
-                        sysPerm.getName(),
-                        sysPerm.getDescription(),
-                        sysPerm.getCategory(),
-                        true // isSystemPermission
-                );
-                permissionRepository.save(permission);
-            }
-        }
+//        for (SystemPermissions sysPerm : SystemPermissions.values()) {
+//            Optional<Permission> existing = permissionRepository.findByName(sysPerm.getName());
+//            if (existing.isEmpty()) {
+//                Permission permission = new Permission(
+//                        sysPerm.getName(),
+//                        sysPerm.getDescription(),
+//                        sysPerm.getCategory(),
+//                        true // isSystemPermission
+//                );
+//                permissionRepository.save(permission);
+//            }
+//        }
     }
 
 
 
     private void initializeRoles() {
-        for (SystemRoles sysRole : SystemRoles.values()) {
-            Optional<Role> existing = roleRepository.findByName(sysRole.getName());
-            if (existing.isEmpty()) {
-                Role role = new Role(sysRole.getName(), sysRole.getDescription(), true);
-
-                // Assign appropriate permissions based on role
-                assignPermissionsToRole(role, sysRole);
-
-                roleRepository.save(role);
-            }
-        }
+//        for (SystemRoles sysRole : SystemRoles.values()) {
+//            Optional<Role> existing = roleRepository.findByName(sysRole.getName());
+//            if (existing.isEmpty()) {
+//                Role role = new Role(sysRole.getName(), sysRole.getDescription(), true);
+//
+//                // Assign appropriate permissions based on role
+//                assignPermissionsToRole(role, sysRole);
+//
+//                roleRepository.save(role);
+//            }
+//        }
     }
 
     private void assignPermissionsToRole(Role role, SystemRoles systemRole) {

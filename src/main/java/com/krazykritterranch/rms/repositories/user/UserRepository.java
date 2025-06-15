@@ -114,4 +114,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Password reset queries
     @Query("SELECT u FROM User u WHERE u.email = :email AND u.isActive = true")
     Optional<User> findActiveUserByEmail(@Param("email") String email);
+
+    // Check if customer number exists for AccountUser entities
+    @Query("SELECT COUNT(u) > 0 FROM AccountUser u WHERE u.customerNumber = :customerNumber")
+    boolean existsByCustomerNumber(@Param("customerNumber") String customerNumber);
 }

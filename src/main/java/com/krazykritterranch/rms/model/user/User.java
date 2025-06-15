@@ -327,16 +327,24 @@ public abstract class User implements UserDetails {
      * Check if user has a specific permission (from roles or custom permissions).
      */
     public boolean hasPermission(String permissionName) {
-        // Check role permissions
+        if (permissionName == null) {
+            return false;
+        }
+
+        // Check role permissions - iterate through permissions directly
         for (Role role : roles) {
-            if (role.hasPermission(permissionName)) {
-                return true;
+            if (role.getPermissions() != null) {
+                for (Permission permission : role.getPermissions()) {
+                    if (permissionName.equals(permission.getName())) {
+                        return true;
+                    }
+                }
             }
         }
 
         // Check custom permissions
         return customPermissions.stream()
-                .anyMatch(permission -> permission.getName().equals(permissionName));
+                .anyMatch(permission -> permissionName.equals(permission.getName()));
     }
 
     /**

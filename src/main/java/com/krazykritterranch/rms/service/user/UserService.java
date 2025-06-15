@@ -617,6 +617,21 @@ public class UserService {
 
         userRepository.save(user);
     }
+
+    /**
+     * Check if a customer number already exists for AccountUser entities
+     * @param customerNumber the customer number to check
+     * @return true if the customer number exists
+     */
+    public boolean existsByCustomerNumber(String customerNumber) {
+        if (customerNumber == null || customerNumber.trim().isEmpty()) {
+            return false;
+        }
+
+        // Use a query to check if any AccountUser has this customer number
+        return userRepository.existsByCustomerNumber(customerNumber.trim());
+    }
+
     public void logUserDeletion(Long deletedUserId, String reason, Long deletedByUserId) {
         // This method logs user deletion for audit purposes
         // According to the technical specifications, we need comprehensive audit trails
