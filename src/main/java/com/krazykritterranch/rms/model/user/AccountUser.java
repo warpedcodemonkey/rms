@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.util.StringJoiner;
 
 /**
  * AccountUser represents all users who belong to a customer account in the RMS system.
@@ -48,6 +49,9 @@ public class AccountUser extends User {
 
     @Column(name = "total_logins")
     private Long totalLogins = 0L;
+
+    @Column(name = "primary_account_user")
+    private boolean primaryAccountUser;
 
     // Constructors
     public AccountUser() {
@@ -126,18 +130,28 @@ public class AccountUser extends User {
         this.totalLogins = totalLogins;
     }
 
+    @Override
+    public boolean isPrimaryAccountUser() {
+        return primaryAccountUser;
+    }
+
+    public void setPrimaryAccountUser(boolean primaryAccountUser) {
+        this.primaryAccountUser = primaryAccountUser;
+    }
+
     // toString for debugging
+
     @Override
     public String toString() {
-        return "AccountUser{" +
-                "id=" + getId() +
-                ", email='" + getEmail() + '\'' +
-                ", fullName='" + getFullName() + '\'' +
-                ", customerNumber='" + customerNumber + '\'' +
-                ", jobTitle='" + jobTitle + '\'' +
-                ", isPrimaryAccountUser=" + isPrimaryAccountUser() +
-                ", accountId=" + (getPrimaryAccount() != null ? getPrimaryAccount().getId() : "null") +
-                ", isActive=" + getIsActive() +
-                '}';
+        return new StringJoiner(", ", AccountUser.class.getSimpleName() + "[", "]")
+                .add("customerNumber='" + customerNumber + "'")
+                .add("jobTitle='" + jobTitle + "'")
+                .add("employeeNumber='" + employeeNumber + "'")
+                .add("hireDate=" + hireDate)
+                .add("createdByAccountUserId=" + createdByAccountUserId)
+                .add("lastActivityDate=" + lastActivityDate)
+                .add("totalLogins=" + totalLogins)
+                .add("primaryAccountUser=" + primaryAccountUser)
+                .toString();
     }
 }
