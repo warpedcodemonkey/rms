@@ -1,13 +1,13 @@
 package com.krazykritterranch.rms.model.user;
 
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Objects;
+import java.util.StringJoiner;
 
 /**
  * Base User entity for the Ranch Management System.
@@ -16,8 +16,6 @@ import java.util.*;
  * Uses single-table inheritance with discriminator column for user types.
  * Supports soft delete (never hard delete users to preserve data integrity).
  * Email address is always the username for all user types.
- *
- *
  */
 @Entity
 @Table(name = "users")
@@ -147,53 +145,7 @@ public abstract class User implements UserDetails {
         this.lastName = lastName;
     }
 
-
-    /**
-     * Soft delete this user (never hard delete to preserve data integrity).
-     */
-    public void softDelete(Long deletedByUserId, String reason) {
-        this.endDate = LocalDateTime.now();
-        this.endReason = reason;
-        this.endedByUserId = deletedByUserId;
-        this.isActive = false;
-        this.updatedAt = LocalDateTime.now();
-        this.updatedByUserId = deletedByUserId;
-    }
-
-    /**
-     * Reactivate a soft-deleted user.
-     */
-    public void reactivate(Long reactivatedByUserId) {
-        this.reactivatedDate = LocalDateTime.now();
-        this.reactivatedByUserId = reactivatedByUserId;
-        this.endDate = null;
-        this.endReason = null;
-        this.endedByUserId = null;
-        this.isActive = true;
-        this.updatedAt = LocalDateTime.now();
-        this.updatedByUserId = reactivatedByUserId;
-    }
-
-    /**
-     * Update the username when email changes (they must always match).
-     */
-    public void setEmail(String email) {
-        this.email = email;
-        this.username = email; // Keep username synchronized with email
-    }
-
-    /**
-     * Get full name for display purposes.
-     */
-    public String getFullName() {
-        return firstName + " " + lastName;
-    }
-
-
-
-
-
-
+    // Spring Security UserDetails Implementation
     @Override
     public String getUsername() {
         return username;
@@ -225,93 +177,230 @@ public abstract class User implements UserDetails {
     }
 
     // Standard Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public void setUsername(String username) {
         this.username = username;
-        // Note: Email should be set separately to maintain sync
     }
 
-    public String getEmail() { return email; }
-    // setEmail method above handles username sync
+    public String getEmail() {
+        return email;
+    }
 
-    public void setPassword(String password) { this.password = password; }
+    public void setEmail(String email) {
+        this.email = email;
+        this.username = email; // Keep username synchronized with email
+    }
 
-    public String getFirstName() { return firstName; }
-    public void setFirstName(String firstName) { this.firstName = firstName; }
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
-    public String getLastName() { return lastName; }
-    public void setLastName(String lastName) { this.lastName = lastName; }
+    public String getFirstName() {
+        return firstName;
+    }
 
-    public String getBio() { return bio; }
-    public void setBio(String bio) { this.bio = bio; }
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
 
-    public String getProfileImageUrl() { return profileImageUrl; }
-    public void setProfileImageUrl(String profileImageUrl) { this.profileImageUrl = profileImageUrl; }
+    public String getLastName() {
+        return lastName;
+    }
 
-    public LocalDate getDateOfBirth() { return dateOfBirth; }
-    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
 
-    public String getJobTitle() { return jobTitle; }
-    public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
+    public String getBio() {
+        return bio;
+    }
 
-    public String getPreferredLanguage() { return preferredLanguage; }
-    public void setPreferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; }
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
 
-    public String getTimezone() { return timezone; }
-    public void setTimezone(String timezone) { this.timezone = timezone; }
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
 
-    public String getEmergencyContactName() { return emergencyContactName; }
-    public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
 
-    public String getEmergencyContactPhone() { return emergencyContactPhone; }
-    public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
 
-    public String getEmergencyContactRelationship() { return emergencyContactRelationship; }
-    public void setEmergencyContactRelationship(String emergencyContactRelationship) { this.emergencyContactRelationship = emergencyContactRelationship; }
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
 
-    public Boolean getEmailNotifications() { return emailNotifications; }
-    public void setEmailNotifications(Boolean emailNotifications) { this.emailNotifications = emailNotifications; }
+    public String getJobTitle() {
+        return jobTitle;
+    }
 
-    public Boolean getSmsNotifications() { return smsNotifications; }
-    public void setSmsNotifications(Boolean smsNotifications) { this.smsNotifications = smsNotifications; }
+    public void setJobTitle(String jobTitle) {
+        this.jobTitle = jobTitle;
+    }
 
-    public Boolean getPushNotifications() { return pushNotifications; }
-    public void setPushNotifications(Boolean pushNotifications) { this.pushNotifications = pushNotifications; }
+    public String getPreferredLanguage() {
+        return preferredLanguage;
+    }
 
-    public Boolean getIsActive() { return isActive; }
-    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    public void setPreferredLanguage(String preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
+    }
 
-    public LocalDateTime getEndDate() { return endDate; }
-    public void setEndDate(LocalDateTime endDate) { this.endDate = endDate; }
+    public String getTimezone() {
+        return timezone;
+    }
 
-    public String getEndReason() { return endReason; }
-    public void setEndReason(String endReason) { this.endReason = endReason; }
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
 
-    public Long getEndedByUserId() { return endedByUserId; }
-    public void setEndedByUserId(Long endedByUserId) { this.endedByUserId = endedByUserId; }
+    public String getEmergencyContactName() {
+        return emergencyContactName;
+    }
 
-    public LocalDateTime getReactivatedDate() { return reactivatedDate; }
-    public void setReactivatedDate(LocalDateTime reactivatedDate) { this.reactivatedDate = reactivatedDate; }
+    public void setEmergencyContactName(String emergencyContactName) {
+        this.emergencyContactName = emergencyContactName;
+    }
 
-    public Long getReactivatedByUserId() { return reactivatedByUserId; }
-    public void setReactivatedByUserId(Long reactivatedByUserId) { this.reactivatedByUserId = reactivatedByUserId; }
+    public String getEmergencyContactPhone() {
+        return emergencyContactPhone;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setEmergencyContactPhone(String emergencyContactPhone) {
+        this.emergencyContactPhone = emergencyContactPhone;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public String getEmergencyContactRelationship() {
+        return emergencyContactRelationship;
+    }
 
-    public LocalDateTime getLastLogin() { return lastLogin; }
-    public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
+    public void setEmergencyContactRelationship(String emergencyContactRelationship) {
+        this.emergencyContactRelationship = emergencyContactRelationship;
+    }
 
-    public Long getCreatedByUserId() { return createdByUserId; }
-    public void setCreatedByUserId(Long createdByUserId) { this.createdByUserId = createdByUserId; }
+    public Boolean getEmailNotifications() {
+        return emailNotifications;
+    }
 
-    public Long getUpdatedByUserId() { return updatedByUserId; }
-    public void setUpdatedByUserId(Long updatedByUserId) { this.updatedByUserId = updatedByUserId; }
+    public void setEmailNotifications(Boolean emailNotifications) {
+        this.emailNotifications = emailNotifications;
+    }
+
+    public Boolean getSmsNotifications() {
+        return smsNotifications;
+    }
+
+    public void setSmsNotifications(Boolean smsNotifications) {
+        this.smsNotifications = smsNotifications;
+    }
+
+    public Boolean getPushNotifications() {
+        return pushNotifications;
+    }
+
+    public void setPushNotifications(Boolean pushNotifications) {
+        this.pushNotifications = pushNotifications;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public LocalDateTime getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDateTime endDate) {
+        this.endDate = endDate;
+    }
+
+    public String getEndReason() {
+        return endReason;
+    }
+
+    public void setEndReason(String endReason) {
+        this.endReason = endReason;
+    }
+
+    public Long getEndedByUserId() {
+        return endedByUserId;
+    }
+
+    public void setEndedByUserId(Long endedByUserId) {
+        this.endedByUserId = endedByUserId;
+    }
+
+    public LocalDateTime getReactivatedDate() {
+        return reactivatedDate;
+    }
+
+    public void setReactivatedDate(LocalDateTime reactivatedDate) {
+        this.reactivatedDate = reactivatedDate;
+    }
+
+    public Long getReactivatedByUserId() {
+        return reactivatedByUserId;
+    }
+
+    public void setReactivatedByUserId(Long reactivatedByUserId) {
+        this.reactivatedByUserId = reactivatedByUserId;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public LocalDateTime getLastLogin() {
+        return lastLogin;
+    }
+
+    public void setLastLogin(LocalDateTime lastLogin) {
+        this.lastLogin = lastLogin;
+    }
+
+    public Long getCreatedByUserId() {
+        return createdByUserId;
+    }
+
+    public void setCreatedByUserId(Long createdByUserId) {
+        this.createdByUserId = createdByUserId;
+    }
+
+    public Long getUpdatedByUserId() {
+        return updatedByUserId;
+    }
+
+    public void setUpdatedByUserId(Long updatedByUserId) {
+        this.updatedByUserId = updatedByUserId;
+    }
 
     @Override
     public String toString() {
@@ -319,32 +408,10 @@ public abstract class User implements UserDetails {
                 .add("id=" + id)
                 .add("username='" + username + "'")
                 .add("email='" + email + "'")
-                .add("password='" + password + "'")
                 .add("firstName='" + firstName + "'")
                 .add("lastName='" + lastName + "'")
-                .add("bio='" + bio + "'")
-                .add("profileImageUrl='" + profileImageUrl + "'")
-                .add("dateOfBirth=" + dateOfBirth)
-                .add("jobTitle='" + jobTitle + "'")
-                .add("preferredLanguage='" + preferredLanguage + "'")
-                .add("timezone='" + timezone + "'")
-                .add("emergencyContactName='" + emergencyContactName + "'")
-                .add("emergencyContactPhone='" + emergencyContactPhone + "'")
-                .add("emergencyContactRelationship='" + emergencyContactRelationship + "'")
-                .add("emailNotifications=" + emailNotifications)
-                .add("smsNotifications=" + smsNotifications)
-                .add("pushNotifications=" + pushNotifications)
                 .add("isActive=" + isActive)
-                .add("endDate=" + endDate)
-                .add("endReason='" + endReason + "'")
-                .add("endedByUserId=" + endedByUserId)
-                .add("reactivatedDate=" + reactivatedDate)
-                .add("reactivatedByUserId=" + reactivatedByUserId)
                 .add("createdAt=" + createdAt)
-                .add("updatedAt=" + updatedAt)
-                .add("lastLogin=" + lastLogin)
-                .add("createdByUserId=" + createdByUserId)
-                .add("updatedByUserId=" + updatedByUserId)
                 .toString();
     }
 
