@@ -1,14 +1,8 @@
 package com.krazykritterranch.rms.model.user;
 
-import com.krazykritterranch.rms.model.common.Account;
-import com.krazykritterranch.rms.model.common.Address;
-import com.krazykritterranch.rms.model.common.Email;
-import com.krazykritterranch.rms.model.common.Phone;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
@@ -23,28 +17,7 @@ import java.util.*;
  * Supports soft delete (never hard delete users to preserve data integrity).
  * Email address is always the username for all user types.
  *
- * User Hierarchy:
- * 1. SuperAdministrator - Platform owners (system-level)
- * 2. SupportAdministrator - Customer service (system-level)
- * 3. AccountUser - Account-level users with role-based permissions
- * 4. Veterinarian - External professionals with cross-account access
  *
- * Account Administration:
- * - AccountUser with isPrimaryAccountUser=true = account owner/administrator
- * - Can create up to 4 additional AccountUsers (5 total per account)
- * - Can assign roles and permissions to other account users
- * - Can grant veterinarian access to account
- *
- * Multi-Contact Support:
- * - Multiple email addresses
- * - Multiple phone numbers
- * - Multiple addresses
- *
- * Security Features:
- * - Role-based access control (RBAC)
- * - Custom permissions in addition to role permissions
- * - Account-based multi-tenancy
- * - Comprehensive audit trail
  */
 @Entity
 @Table(name = "users")
@@ -118,58 +91,6 @@ public abstract class User implements UserDetails {
     @Column(name = "push_notifications")
     private Boolean pushNotifications = true;
 
-    // Account Association (NULL for system users, REQUIRED for account users)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "primary_account_id")
-    private Account primaryAccount;
-
-    // Account Administration Flag
-    @Column(name = "is_primary_account_user")
-    private Boolean isPrimaryAccountUser = false;
-
-    // Role-Based Security
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    private Set<Role> roles = new HashSet<>();
-
-    // Custom Permissions (in addition to role permissions)
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_custom_permissions",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permission> customPermissions = new HashSet<>();
-
-    // Multi-Contact Support
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_emails",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "email_id")
-    )
-    private List<Email> additionalEmails = new ArrayList<>();
-
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_phones",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "phone_id")
-    )
-    private List<Phone> phoneNumbers = new ArrayList<>();
-
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_addresses",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "address_id")
-    )
-    private List<Address> addresses = new ArrayList<>();
-
     // Soft Delete Implementation (NEVER hard delete users)
     @Column(name = "is_active")
     private Boolean isActive = true;
@@ -205,9 +126,6 @@ public abstract class User implements UserDetails {
     @Column(name = "updated_by_user_id")
     private Long updatedByUserId;
 
-    // Abstract Methods (implemented by concrete user types)
-    public abstract UserLevel getUserLevel();
-
     /**
      * Get the discriminator value for this user type.
      * Used by JPA for single-table inheritance.
@@ -229,51 +147,6 @@ public abstract class User implements UserDetails {
         this.lastName = lastName;
     }
 
-    // Business Logic Methods
-
-    /**
-     * Validates account association based on user level requirements.
-     * Called automatically on persist/update.
-     */
-    public void validateAccountAssociation() {
-        UserLevel level = getUserLevel();
-        boolean hasAccount = (primaryAccount != null);
-
-        if (!level.validateAccountAssignment(hasAccount)) {
-            if (level.requiresAccount() && !hasAccount) {
-                throw new IllegalStateException(
-                        level.getDisplayName() + " must be associated with an account");
-            }
-            if (level.isSystemUser() && hasAccount) {
-                throw new IllegalStateException(
-                        level.getDisplayName() + " cannot be associated with an account");
-            }
-        }
-    }
-
-    /**
-     * Determines if this user belongs to the specified account.
-     */
-    public boolean belongsToAccount(Long accountId) {
-        return primaryAccount != null && primaryAccount.getId().equals(accountId);
-    }
-
-    /**
-     * Determines if this user can manage another user based on user levels and roles.
-     */
-    public boolean canManageUser(User otherUser) {
-        // System users can manage based on hierarchy
-        if (this.getUserLevel().isSystemUser()) {
-            return this.getUserLevel().canManage(otherUser.getUserLevel());
-        }
-
-        // Account admins can manage other users in their account
-        if (this.isAccountAdmin() && otherUser.isAccountUser()) {
-            return this.belongsToAccount(otherUser.getPrimaryAccount().getId());
-        }
-
-        return false;
-    }
 
     /**
      * Soft delete this user (never hard delete to preserve data integrity).
@@ -316,83 +189,10 @@ public abstract class User implements UserDetails {
         return firstName + " " + lastName;
     }
 
-    /**
-     * Get display name with user type.
-     */
-    public String getDisplayNameWithType() {
-        return getFullName() + " (" + getUserLevel().getDisplayName() + ")";
-    }
 
-    /**
-     * Check if user has a specific permission (from roles or custom permissions).
-     */
-    public boolean hasPermission(String permissionName) {
-        if (permissionName == null) {
-            return false;
-        }
 
-        // Check role permissions - iterate through permissions directly
-        for (Role role : roles) {
-            if (role.getPermissions() != null) {
-                for (Permission permission : role.getPermissions()) {
-                    if (permissionName.equals(permission.getName())) {
-                        return true;
-                    }
-                }
-            }
-        }
 
-        // Check custom permissions
-        return customPermissions.stream()
-                .anyMatch(permission -> permissionName.equals(permission.getName()));
-    }
 
-    /**
-     * Check if user has a specific role.
-     */
-    public boolean hasRole(String roleName) {
-        return roles.stream()
-                .anyMatch(role -> role.getName().equals(roleName));
-    }
-
-    // JPA Lifecycle Methods
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        updatedAt = LocalDateTime.now();
-        validateAccountAssociation();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-        validateAccountAssociation();
-    }
-
-    // Spring Security UserDetails Implementation
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        Set<GrantedAuthority> authorities = new HashSet<>();
-
-        // Add role-based authorities
-        for (Role role : roles) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName()));
-
-            // Add permissions from roles
-            for (Permission permission : role.getPermissions()) {
-                authorities.add(new SimpleGrantedAuthority("PERM_" + permission.getName()));
-            }
-        }
-
-        // Add custom permissions
-        for (Permission permission : customPermissions) {
-            authorities.add(new SimpleGrantedAuthority("PERM_" + permission.getName()));
-        }
-
-        return authorities;
-    }
 
     @Override
     public String getUsername() {
@@ -422,59 +222,6 @@ public abstract class User implements UserDetails {
     @Override
     public boolean isEnabled() {
         return isActive != null && isActive;
-    }
-
-    public Boolean getIsPrimaryAccountUser() { return isPrimaryAccountUser; }
-    public void setIsPrimaryAccountUser(Boolean isPrimaryAccountUser) {
-        this.isPrimaryAccountUser = isPrimaryAccountUser;
-    }    /**
-     * Set this user as the primary account user (account administrator).
-     * Only one user per account should have this flag set to true.
-     */
-    public void setPrimaryAccountUserFlag(Boolean isPrimary) {
-        this.isPrimaryAccountUser = isPrimary;
-    }
-
-    /**
-     * Check if this user is the primary account user (account owner/administrator).
-     */
-    public boolean isPrimaryAccountUser() {
-        return isPrimaryAccountUser != null && isPrimaryAccountUser;
-    }    /**
-     * Check if this user can grant veterinarian access to their account.
-     * Only account admins can grant veterinarian access.
-     */
-    public boolean canGrantVeterinarianAccess() {
-        return isAccountAdmin();
-    }
-
-    /**
-     * Check if this user can modify account settings.
-     * Only account admins can modify account-level settings.
-     */
-    public boolean canModifyAccountSettings() {
-        return isAccountAdmin();
-    }    /**
-     * Check if this user has account administrator privileges.
-     * Account admin rights are determined by having the "ACCOUNT_ADMIN" role.
-     */
-    public boolean isAccountAdmin() {
-        return isAccountUser() && hasRole("ACCOUNT_ADMIN");
-    }
-
-    /**
-     * Check if this user can create other users in their account.
-     * Only account admins can create additional users.
-     */
-    public boolean canCreateAccountUsers() {
-        return isAccountAdmin();
-    }
-
-    /**
-     * Check if user is an account-level user (belongs to a customer account).
-     */
-    public boolean isAccountUser() {
-        return getUserLevel() == UserLevel.ACCOUNT_USER;
     }
 
     // Standard Getters and Setters
@@ -533,24 +280,6 @@ public abstract class User implements UserDetails {
     public Boolean getPushNotifications() { return pushNotifications; }
     public void setPushNotifications(Boolean pushNotifications) { this.pushNotifications = pushNotifications; }
 
-    public Account getPrimaryAccount() { return primaryAccount; }
-    public void setPrimaryAccount(Account primaryAccount) { this.primaryAccount = primaryAccount; }
-
-    public Set<Role> getRoles() { return roles; }
-    public void setRoles(Set<Role> roles) { this.roles = roles; }
-
-    public Set<Permission> getCustomPermissions() { return customPermissions; }
-    public void setCustomPermissions(Set<Permission> customPermissions) { this.customPermissions = customPermissions; }
-
-    public List<Email> getAdditionalEmails() { return additionalEmails; }
-    public void setAdditionalEmails(List<Email> additionalEmails) { this.additionalEmails = additionalEmails; }
-
-    public List<Phone> getPhoneNumbers() { return phoneNumbers; }
-    public void setPhoneNumbers(List<Phone> phoneNumbers) { this.phoneNumbers = phoneNumbers; }
-
-    public List<Address> getAddresses() { return addresses; }
-    public void setAddresses(List<Address> addresses) { this.addresses = addresses; }
-
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
 
@@ -584,17 +313,39 @@ public abstract class User implements UserDetails {
     public Long getUpdatedByUserId() { return updatedByUserId; }
     public void setUpdatedByUserId(Long updatedByUserId) { this.updatedByUserId = updatedByUserId; }
 
-    // toString, equals, and hashCode
     @Override
     public String toString() {
-        return "User{" +
-                "id=" + id +
-                ", username='" + username + '\'' +
-                ", email='" + email + '\'' +
-                ", fullName='" + getFullName() + '\'' +
-                ", userLevel=" + getUserLevel() +
-                ", isActive=" + isActive +
-                '}';
+        return new StringJoiner(", ", User.class.getSimpleName() + "[", "]")
+                .add("id=" + id)
+                .add("username='" + username + "'")
+                .add("email='" + email + "'")
+                .add("password='" + password + "'")
+                .add("firstName='" + firstName + "'")
+                .add("lastName='" + lastName + "'")
+                .add("bio='" + bio + "'")
+                .add("profileImageUrl='" + profileImageUrl + "'")
+                .add("dateOfBirth=" + dateOfBirth)
+                .add("jobTitle='" + jobTitle + "'")
+                .add("preferredLanguage='" + preferredLanguage + "'")
+                .add("timezone='" + timezone + "'")
+                .add("emergencyContactName='" + emergencyContactName + "'")
+                .add("emergencyContactPhone='" + emergencyContactPhone + "'")
+                .add("emergencyContactRelationship='" + emergencyContactRelationship + "'")
+                .add("emailNotifications=" + emailNotifications)
+                .add("smsNotifications=" + smsNotifications)
+                .add("pushNotifications=" + pushNotifications)
+                .add("isActive=" + isActive)
+                .add("endDate=" + endDate)
+                .add("endReason='" + endReason + "'")
+                .add("endedByUserId=" + endedByUserId)
+                .add("reactivatedDate=" + reactivatedDate)
+                .add("reactivatedByUserId=" + reactivatedByUserId)
+                .add("createdAt=" + createdAt)
+                .add("updatedAt=" + updatedAt)
+                .add("lastLogin=" + lastLogin)
+                .add("createdByUserId=" + createdByUserId)
+                .add("updatedByUserId=" + updatedByUserId)
+                .toString();
     }
 
     @Override
