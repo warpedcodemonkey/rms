@@ -17,7 +17,10 @@ public class UserResponseDTO {
     private Long accountId;
     private String accountName;
 
-    // Customer-specific fields
+    // ADDED: Employee ID field (standardized across all user types)
+    private String employeeId;
+
+    // AccountUser-specific fields
     private String customerNumber;
     private String emergencyContact;
     private String emergencyPhone;
@@ -55,30 +58,42 @@ public class UserResponseDTO {
 
         // Set type-specific fields based on user type
         switch (user.getUserType()) {
-            case "CUSTOMER":
-                if (user instanceof com.krazykritterranch.rms.model.user.Customer) {
-                    com.krazykritterranch.rms.model.user.Customer customer =
-                            (com.krazykritterranch.rms.model.user.Customer) user;
-                    dto.setCustomerNumber(customer.getCustomerNumber());
-                    dto.setEmergencyContact(customer.getEmergencyContact());
-                    dto.setEmergencyPhone(customer.getEmergencyPhone());
+            case "ACCOUNT_USER":
+                if (user instanceof com.krazykritterranch.rms.model.user.AccountUser) {
+                    com.krazykritterranch.rms.model.user.AccountUser accountUser =
+                            (com.krazykritterranch.rms.model.user.AccountUser) user;
+                    dto.setCustomerNumber(accountUser.getCustomerNumber());
+                    dto.setEmergencyContact(accountUser.getEmergencyContactName());
+                    dto.setEmergencyPhone(accountUser.getEmergencyContactPhone());
+                    dto.setEmployeeId(accountUser.getEmployeeId());
                 }
                 break;
-            case "ADMINISTRATOR":
-                if (user instanceof com.krazykritterranch.rms.model.user.Administrator) {
-                    com.krazykritterranch.rms.model.user.Administrator admin =
-                            (com.krazykritterranch.rms.model.user.Administrator) user;
+            case "SUPER_ADMIN":
+                if (user instanceof com.krazykritterranch.rms.model.user.SuperAdministrator) {
+                    com.krazykritterranch.rms.model.user.SuperAdministrator admin =
+                            (com.krazykritterranch.rms.model.user.SuperAdministrator) user;
                     dto.setDepartment(admin.getDepartment());
-                    dto.setAccessLevel(admin.getAccessLevel());
+                    dto.setEmployeeId(admin.getEmployeeId());
+                    // Note: SuperAdministrator doesn't have accessLevel field
+                }
+                break;
+            case "SUPPORT_ADMIN":
+                if (user instanceof com.krazykritterranch.rms.model.user.SupportAdministrator) {
+                    com.krazykritterranch.rms.model.user.SupportAdministrator supportAdmin =
+                            (com.krazykritterranch.rms.model.user.SupportAdministrator) user;
+                    dto.setDepartment(supportAdmin.getDepartment());
+                    dto.setEmployeeId(supportAdmin.getEmployeeId());
+                    dto.setAccessLevel(supportAdmin.getSupportTier()); // Map supportTier to accessLevel for DTO
                 }
                 break;
             case "VETERINARIAN":
                 if (user instanceof com.krazykritterranch.rms.model.user.Veterinarian) {
                     com.krazykritterranch.rms.model.user.Veterinarian vet =
                             (com.krazykritterranch.rms.model.user.Veterinarian) user;
-                    dto.setLicenseNumber(vet.getLicenseNumber());
+                    dto.setLicenseNumber(vet.getVetLicenseNumber());
                     dto.setSpecialization(vet.getSpecialization());
-                    dto.setClinicName(vet.getClinicName());
+                    dto.setClinicName(vet.getPracticeName());
+                    // Note: Veterinarians don't have employeeId (external professionals)
                 }
                 break;
         }
@@ -123,7 +138,11 @@ public class UserResponseDTO {
     public String getAccountName() { return accountName; }
     public void setAccountName(String accountName) { this.accountName = accountName; }
 
-    // Customer fields
+    // ADDED: Employee ID getter and setter
+    public String getEmployeeId() { return employeeId; }
+    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
+
+    // AccountUser fields
     public String getCustomerNumber() { return customerNumber; }
     public void setCustomerNumber(String customerNumber) { this.customerNumber = customerNumber; }
 

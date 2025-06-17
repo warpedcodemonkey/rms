@@ -1,7 +1,7 @@
 package com.krazykritterranch.rms.model.common;
 
 import com.krazykritterranch.rms.model.BaseVO;
-import com.krazykritterranch.rms.model.livestock.Livestock;
+//import com.krazykritterranch.rms.model.livestock.Livestock;
 import com.krazykritterranch.rms.model.user.User;
 import com.krazykritterranch.rms.model.user.VetPermission; // ADD THIS IMPORT
 
@@ -41,9 +41,9 @@ public class Account extends BaseVO {
     @JsonManagedReference("account-users")  // This is the managing side of the relationship
     private List<User> accountUsers = new ArrayList<>();
 
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
-    @JsonIgnore  // Don't serialize livestock in account responses (too much data)
-    private List<Livestock> livestock = new ArrayList<>();
+//    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
+//    @JsonIgnore  // Don't serialize livestock in account responses (too much data)
+//    private List<Livestock> livestock = new ArrayList<>();
 
     // Vet permissions - which vets can access this account
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
@@ -112,8 +112,8 @@ public class Account extends BaseVO {
     public List<User> getAccountUsers() { return accountUsers; }
     public void setAccountUsers(List<User> accountUsers) { this.accountUsers = accountUsers; }
 
-    public List<Livestock> getLivestock() { return livestock; }
-    public void setLivestock(List<Livestock> livestock) { this.livestock = livestock; }
+//    public List<Livestock> getLivestock() { return livestock; }
+//    public void setLivestock(List<Livestock> livestock) { this.livestock = livestock; }
 
     public Set<VetPermission> getVetPermissions() { return vetPermissions; }
     public void setVetPermissions(Set<VetPermission> vetPermissions) { this.vetPermissions = vetPermissions; }

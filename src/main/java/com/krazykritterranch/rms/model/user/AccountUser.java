@@ -34,9 +34,9 @@ public class AccountUser extends User {
     @Size(max = 150, message = "Job title cannot exceed 150 characters")
     private String jobTitle;
 
-    @Column(name = "employee_number", length = 50)
-    @Size(max = 50, message = "Employee number cannot exceed 50 characters")
-    private String employeeNumber;
+    @Column(name = "employee_id", length = 50)
+    @Size(max = 50, message = "Employee ID cannot exceed 50 characters")
+    private String employeeId;
 
     @Column(name = "hire_date")
     private LocalDateTime hireDate;
@@ -90,12 +90,12 @@ public class AccountUser extends User {
         this.jobTitle = jobTitle;
     }
 
-    public String getEmployeeNumber() {
-        return employeeNumber;
+    public String getEmployeeId() {
+        return employeeId;
     }
 
-    public void setEmployeeNumber(String employeeNumber) {
-        this.employeeNumber = employeeNumber;
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
     }
 
     public LocalDateTime getHireDate() {
@@ -140,13 +140,12 @@ public class AccountUser extends User {
     }
 
     // toString for debugging
-
     @Override
     public String toString() {
         return new StringJoiner(", ", AccountUser.class.getSimpleName() + "[", "]")
                 .add("customerNumber='" + customerNumber + "'")
                 .add("jobTitle='" + jobTitle + "'")
-                .add("employeeNumber='" + employeeNumber + "'")
+                .add("employeeId='" + employeeId + "'")
                 .add("hireDate=" + hireDate)
                 .add("createdByAccountUserId=" + createdByAccountUserId)
                 .add("lastActivityDate=" + lastActivityDate)

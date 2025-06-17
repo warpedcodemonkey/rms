@@ -1,9 +1,9 @@
 package com.krazykritterranch.rms.controller.dashboard;
 
 import com.krazykritterranch.rms.model.common.Account;
-import com.krazykritterranch.rms.model.livestock.Livestock;
+//import com.krazykritterranch.rms.model.livestock.Livestock;
 import com.krazykritterranch.rms.service.common.AccountService;
-import com.krazykritterranch.rms.service.livestock.LivestockService;
+//import com.krazykritterranch.rms.service.livestock.LivestockService;
 import com.krazykritterranch.rms.service.security.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +23,8 @@ public class DashboardController {
     @Autowired
     private AccountService accountService;
 
-    @Autowired
-    private LivestockService livestockService;
+//    @Autowired
+//    private LivestockService livestockService;
 
     @Autowired
     private TenantContext tenantContext;
@@ -54,16 +54,16 @@ public class DashboardController {
             return ResponseEntity.badRequest().build();
         }
 
-        List<Livestock> livestock = livestockService.getAllLivestock();
-        dashboard.put("totalLivestock", livestock.size());
-
-        // Add livestock by type breakdown
-        Map<String, Long> livestockByType = new HashMap<>();
-        livestock.forEach(l -> {
-            String type = l.getLivestockType() != null ? l.getLivestockType().getLivestockType() : "Unknown";
-            livestockByType.merge(type, 1L, Long::sum);
-        });
-        dashboard.put("livestockByType", livestockByType);
+//        List<Livestock> livestock = livestockService.getAllLivestock();
+//        dashboard.put("totalLivestock", livestock.size());
+//
+//        // Add livestock by type breakdown
+//        Map<String, Long> livestockByType = new HashMap<>();
+//        livestock.forEach(l -> {
+//            String type = l.getLivestockType() != null ? l.getLivestockType().getLivestockType() : "Unknown";
+//            livestockByType.merge(type, 1L, Long::sum);
+//        });
+//        dashboard.put("livestockByType", livestockByType);
 
         return ResponseEntity.ok(dashboard);
     }
@@ -76,8 +76,8 @@ public class DashboardController {
         List<Account> accessibleAccounts = accountService.getAccountsForVet(tenantContext.getCurrentUserId());
         dashboard.put("accessibleAccounts", accessibleAccounts.size());
 
-        List<Livestock> accessibleLivestock = livestockService.getAllLivestock();
-        dashboard.put("accessibleLivestock", accessibleLivestock.size());
+//        List<Livestock> accessibleLivestock = livestockService.getAllLivestock();
+//        dashboard.put("accessibleLivestock", accessibleLivestock.size());
 
         return ResponseEntity.ok(dashboard);
     }

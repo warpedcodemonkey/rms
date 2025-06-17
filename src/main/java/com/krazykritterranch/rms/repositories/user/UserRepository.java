@@ -51,6 +51,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.primaryAccount.id = :accountId AND u.isActive = true")
     long countActiveUsersByAccountId(@Param("accountId") Long accountId);
 
+    // ADDED: Missing method referenced in UserService
+    @Query("SELECT COUNT(u) FROM User u WHERE u.primaryAccount.id = :accountId")
+    long countByAccountId(@Param("accountId") Long accountId);
+
     // Find primary account user
     @Query("SELECT u FROM User u WHERE u.primaryAccount.id = :accountId AND u.isPrimaryAccountUser = true")
     Optional<User> findPrimaryAccountUser(@Param("accountId") Long accountId);
@@ -90,6 +94,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.isActive = true")
     long countActiveUsers();
 
+    // ADDED: Count active administrators (referenced in UserService)
+    @Query("SELECT COUNT(u) FROM User u WHERE (TYPE(u) = com.krazykritterranch.rms.model.user.SuperAdministrator OR TYPE(u) = com.krazykritterranch.rms.model.user.SupportAdministrator) AND u.isActive = true")
+    long countActiveAdministrators();
+
+    // ADDED: Count users by discriminator value (simpler approach for user types)
+    @Query("SELECT COUNT(u) FROM User u WHERE u.class = :userType AND u.isActive = true")
+    long countActiveUsersByDiscriminator(@Param("userType") String userType);
+
     // Eager fetch roles and permissions for authentication
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.permissions LEFT JOIN FETCH u.customPermissions WHERE u.username = :username")
     Optional<User> findByUsernameWithRoles(@Param("username") String username);
@@ -118,4 +130,32 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Check if customer number exists for AccountUser entities
     @Query("SELECT COUNT(u) > 0 FROM AccountUser u WHERE u.customerNumber = :customerNumber")
     boolean existsByCustomerNumber(@Param("customerNumber") String customerNumber);
+
+    // ADDED: Soft delete operations
+    @Query("SELECT u FROM User u WHERE u.isActive = false")
+    List<User> findSoftDeletedUsers();
+
+    @Query("SELECT u FROM User u WHERE u.endDate BETWEEN :startDate AND :endDate")
+    List<User> findUsersSoftDeletedBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // ADDED: User management queries for account admins
+    @Query("SELECT u FROM User u WHERE u.primaryAccount.id = :accountId AND u.isPrimaryAccountUser = false AND u.isActive = true")
+    List<User> findNonPrimaryAccountUsers(@Param("accountId") Long accountId);
+
+    @Query("SELECT u FROM User u WHERE u.primaryAccount.id = :accountId AND u.createdByUserId = :createdBy")
+    List<User> findUsersCreatedByUser(@Param("accountId") Long accountId, @Param("createdBy") Long createdBy);
+
+    // ADDED: Security audit queries
+    @Query("SELECT u FROM User u WHERE u.lastLogin < :cutoffDate AND u.isActive = true")
+    List<User> findUsersWithStaleLogins(@Param("cutoffDate") LocalDateTime cutoffDate);
+
+    @Query("SELECT u FROM User u WHERE u.roles IS EMPTY AND u.isActive = true")
+    List<User> findUsersWithoutRoles();
+
+    // ADDED: Account capacity queries
+    @Query("SELECT COUNT(u) FROM User u WHERE u.primaryAccount.id = :accountId AND u.isActive = true")
+    long countActiveAccountUsers(@Param("accountId") Long accountId);
+
+    @Query("SELECT u.primaryAccount.id, COUNT(u) FROM User u WHERE u.primaryAccount IS NOT NULL AND u.isActive = true GROUP BY u.primaryAccount.id")
+    List<Object[]> getAccountUserCounts();
 }

@@ -16,12 +16,15 @@ public class UserUpdateDTO {
     private String phoneNumber;
     private Boolean isActive;
 
-    // Customer-specific fields
+    // ADDED: Employee ID field (standardized across all user types)
+    private String employeeId;
+
+    // AccountUser-specific fields
     private String customerNumber;
     private String emergencyContact;
     private String emergencyPhone;
 
-    // Administrator-specific fields
+    // Administrator-specific fields (SuperAdministrator and SupportAdministrator)
     private String department;
     private Integer accessLevel;
 
@@ -61,7 +64,11 @@ public class UserUpdateDTO {
     public String getNewPassword() { return newPassword; }
     public void setNewPassword(String newPassword) { this.newPassword = newPassword; }
 
-    // Customer fields
+    // ADDED: Employee ID getter and setter
+    public String getEmployeeId() { return employeeId; }
+    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
+
+    // AccountUser fields
     public String getCustomerNumber() { return customerNumber; }
     public void setCustomerNumber(String customerNumber) { this.customerNumber = customerNumber; }
 

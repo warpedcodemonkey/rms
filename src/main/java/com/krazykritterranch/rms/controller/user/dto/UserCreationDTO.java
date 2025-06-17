@@ -28,16 +28,19 @@ public class UserCreationDTO {
     private String phoneNumber;
 
     @NotNull(message = "User type is required")
-    private String userType; // CUSTOMER, ADMINISTRATOR, VETERINARIAN
+    private String userType; // SUPER_ADMIN, SUPPORT_ADMIN, ACCOUNT_USER, VETERINARIAN
 
     private Boolean isActive = true;
 
-    // Customer-specific fields
+    // ADDED: Employee ID field (standardized across all user types)
+    private String employeeId;
+
+    // AccountUser-specific fields
     private String customerNumber;
     private String emergencyContact;
     private String emergencyPhone;
 
-    // Administrator-specific fields
+    // Administrator-specific fields (SuperAdministrator and SupportAdministrator)
     private String department;
     private Integer accessLevel;
 
@@ -76,7 +79,11 @@ public class UserCreationDTO {
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
 
-    // Customer fields
+    // ADDED: Employee ID getter and setter
+    public String getEmployeeId() { return employeeId; }
+    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
+
+    // AccountUser fields
     public String getCustomerNumber() { return customerNumber; }
     public void setCustomerNumber(String customerNumber) { this.customerNumber = customerNumber; }
 
