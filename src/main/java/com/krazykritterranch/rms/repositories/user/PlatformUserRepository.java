@@ -35,10 +35,10 @@ public interface PlatformUserRepository extends JpaRepository<PlatformUser, Long
     @Query("SELECT p FROM PlatformUser p WHERE p.isActive = true AND p.platformRole = :role")
     List<PlatformUser> findActiveByPlatformRole(@Param("role") PlatformUser.PlatformRole role);
 
-    @Query("SELECT p FROM PlatformUser p WHERE p.isActive = true AND p.platformRole = 'SUPER_ADMIN'")
+    @Query("SELECT p FROM PlatformUser p WHERE p.isActive = true AND p.platformRole = com.krazykritterranch.rms.model.user.PlatformUser$PlatformRole.SUPER_ADMIN")
     List<PlatformUser> findActiveSuperAdmins();
 
-    @Query("SELECT p FROM PlatformUser p WHERE p.isActive = true AND p.platformRole = 'SUPPORT_ADMIN'")
+    @Query("SELECT p FROM PlatformUser p WHERE p.isActive = true AND p.platformRole = com.krazykritterranch.rms.model.user.PlatformUser$PlatformRole.SUPPORT_ADMIN")
     List<PlatformUser> findActiveSupportAdmins();
 
     // Search Platform Users
